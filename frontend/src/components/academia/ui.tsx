@@ -80,3 +80,90 @@ export function Legenda({ itens }: { itens: { cor: string; rotulo: string }[] })
     </div>
   );
 }
+
+// Cartão com ícone, rótulo e um número em destaque (topo das telas).
+export function CardNumero({
+  icone: Icone,
+  cor,
+  rotulo,
+  children,
+  className = "",
+}: {
+  icone: LucideIcon;
+  cor: string;
+  rotulo: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={`!p-4 ${className}`}>
+      <div className="flex items-center gap-3">
+        <span className={`grid size-9 shrink-0 place-items-center rounded-full ${cor}`}>
+          <Icone className="size-[18px]" />
+        </span>
+        <span className="text-[13px] text-slate-300">{rotulo}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">{children}</div>
+    </Card>
+  );
+}
+
+// Abas em forma de "pílula" (filtros das listas).
+export function Abas<T extends string>({
+  abas,
+  valor,
+  aoMudar,
+}: {
+  abas: { valor: T; rotulo: string; quantidade?: number }[];
+  valor: T;
+  aoMudar: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {abas.map((a) => (
+        <button
+          key={a.valor}
+          type="button"
+          onClick={() => aoMudar(a.valor)}
+          className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${
+            valor === a.valor ? "bg-violet-600/25 text-white ring-1 ring-violet-500/60" : "text-slate-300 hover:bg-white/5"
+          }`}
+        >
+          {a.rotulo}
+          {a.quantidade !== undefined && <span className="ml-1.5 text-xs text-ac-muted">{a.quantidade}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Cabeçalho padrão das telas: título, descrição e ações à direita.
+export function CabecalhoPagina({
+  titulo,
+  descricao,
+  children,
+}: {
+  titulo: string;
+  descricao?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 className="font-poppins text-[28px] font-bold text-white">{titulo}</h1>
+        {descricao && <p className="mt-1 text-sm text-ac-muted">{descricao}</p>}
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+// Aviso de "nada por aqui" dentro de um card.
+export function Vazio({ icone: Icone, children }: { icone: LucideIcon; children: ReactNode }) {
+  return (
+    <div className="px-5 py-12 text-center">
+      <Icone className="mx-auto size-8 text-ac-muted" />
+      <p className="mt-2 text-sm text-ac-muted">{children}</p>
+    </div>
+  );
+}

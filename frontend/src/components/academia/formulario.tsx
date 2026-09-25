@@ -104,3 +104,38 @@ export function MensagemErro({ texto }: { texto: string | null }) {
 export function mensagemDe(erro: unknown) {
   return erro instanceof Error ? erro.message : "Algo deu errado. Tente de novo.";
 }
+
+// Chave liga/desliga com título e explicação.
+export function Interruptor({
+  ligado,
+  aoMudar,
+  titulo,
+  descricao,
+}: {
+  ligado: boolean;
+  aoMudar: (v: boolean) => void;
+  titulo: string;
+  descricao?: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={ligado}
+      onClick={() => aoMudar(!ligado)}
+      className="flex w-full items-start gap-3 text-left"
+    >
+      <span
+        className={`mt-0.5 flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition ${
+          ligado ? "bg-gradient-to-r from-violet-600 to-fuchsia-500" : "bg-ac-line"
+        }`}
+      >
+        <span className={`size-5 rounded-full bg-white shadow transition ${ligado ? "translate-x-5" : ""}`} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-white">{titulo}</span>
+        {descricao && <span className="mt-0.5 block text-xs text-ac-muted">{descricao}</span>}
+      </span>
+    </button>
+  );
+}

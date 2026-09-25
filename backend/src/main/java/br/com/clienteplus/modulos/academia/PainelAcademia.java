@@ -10,6 +10,7 @@ import br.com.clienteplus.modulos.clienteplus.Assinatura;
 import br.com.clienteplus.modulos.clienteplus.Cliente;
 import br.com.clienteplus.modulos.clienteplus.Pagamento;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -35,12 +36,15 @@ import java.util.stream.Collectors;
 // - Inadimplência = % dos alunos ativos com alguma mensalidade vencida e não
 //   paga naquele dia.
 // - Faturamento/receita = mensalidades pagas no mês (pela data do pagamento).
-// Check-ins e despesas ainda não existem: vão vazios.
+// - Check-ins hoje e horários de pico: a partir dos acessos liberados.
 @ApplicationScoped
 public class PainelAcademia {
 
     private static final int MESES_NOS_GRAFICOS = 6;
     private static final Locale PT_BR = Locale.of("pt", "BR");
+
+    @Inject
+    HorariosPico pico;
 
     public DashboardAcademia montar(UUID storeId) {
         AcademiaPainel painel = AcademiaPainel.<AcademiaPainel>find("storeId", storeId)
@@ -62,9 +66,9 @@ public class PainelAcademia {
                 new Gestor(painel.gestorNome, painel.gestorCargo),
                 alertas.size(),
                 painel.frase,
-                indicadores(d),
+                indicadores(d, checkinsHoje(storeId)),
                 evolucao(d),
-                List.of(),
+                pico.paraDashboard(storeId),
                 alertas,
                 receita(d),
                 tiposPlanos(d),
@@ -126,7 +130,7 @@ public class PainelAcademia {
 
     // ---------- Cards do topo ----------
 
-    private static Indicadores indicadores(Dados d) {
+    private static Indicadores indicadores(Dados d, CheckinsHoje checkins) {
         LocalDate hoje = d.hoje();
         YearMonth mes = d.mesAtual();
         YearMonth anterior = mes.minusMonths(1);
@@ -155,7 +159,22 @@ public class PainelAcademia {
                         inadimplencia,
                         Math.round((inadimplencia - inadimplenciaAnterior) * 10) / 10.0,
                         inadimplenciaAnterior),
-                null);
+                checkins);
+    }
+
+    // Entradas liberadas hoje, comparadas com o mesmo dia da semana passada até
+    // a mesma hora.
+    private static CheckinsHoje checkinsHoje(UUID storeId) {
+        LocalDate hoje = Matriculas.hoje();
+        List<Acesso> deHoje = Acesso.list(
+                "storeId = ?1 and resultado = ?2 and momento >= ?3 order by momento desc",
+                storeId, Acesso.LIBERADO, Acessos.inicioDo(hoje));
+        long semanaPassada = Acesso.count("storeId = ?1 and resultado = ?2 and momento >= ?3 and momento < ?4",
+                storeId, Acesso.LIBERADO, Acessos.inicioDo(hoje.minusWeeks(1)), OffsetDateTime.now().minusWeeks(1));
+        return new CheckinsHoje(
+                deHoje.size(),
+                variacao(deHoje.size(), semanaPassada),
+                deHoje.isEmpty() ? "nenhum ainda" : haQuanto(deHoje.get(0).momento));
     }
 
     // Variação percentual inteira entre dois valores (ex.: 110 vs 100 -> 10).

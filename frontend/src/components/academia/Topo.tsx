@@ -117,7 +117,7 @@ const acoes: Acao[] = [
     cor: "text-blue-400",
     link: { to: "/academia/alunos", search: { novo: true } },
   },
-  { rotulo: "Check-in", icone: QrCode, cor: "text-blue-400" },
+  { rotulo: "Check-in", icone: QrCode, cor: "text-blue-400", link: { to: "/academia/check-in" } },
   {
     rotulo: "Nova matrícula",
     icone: FilePlus,
@@ -208,7 +208,7 @@ export function CheckinsHoje({ dados }: { dados: Indicadores["checkinsHoje"] }) 
           <span className="rounded-md bg-violet-600/25 px-2 py-0.5 text-[11px] font-semibold text-violet-200">
             Em breve
           </span>
-          <p className="mt-2 text-[11.5px] text-ac-muted">Aparece aqui quando o Check-in for criado.</p>
+          <p className="mt-2 text-[11.5px] text-ac-muted">Nenhum check-in ainda.</p>
         </div>
       )}
     </Card>

@@ -4,6 +4,7 @@ import br.com.clienteplus.modulos.academia.TreinosContrato.*;
 import br.com.clienteplus.modulos.clienteplus.Cliente;
 import br.com.clienteplus.modulos.comum.Erro;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -15,7 +16,7 @@ import java.util.stream.Collectors;
 // Regras de profissionais, exercícios e fichas de treino.
 //
 // - Ficha sem aluno = modelo. Ficha de aluno tem início e validade (padrão:
-//   8 semanas) e um professor responsável.
+//   8 semanas, muda em Configurações) e um professor responsável.
 // - Cada aluno tem no máximo uma ficha ativa: ao montar uma nova, a anterior
 //   é encerrada (continua no histórico).
 // - Situação: vencida (validade antes de hoje), vence_em_breve (até 7 dias)
@@ -23,8 +24,10 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class Treinos {
 
-    static final int SEMANAS_PADRAO = 8;
     static final int MAX_DIVISOES = 7;
+
+    @Inject
+    Configuracoes configuracoes;
 
     static final Set<String> GRUPOS = Set.of("peito", "costas", "ombros", "biceps", "triceps", "pernas",
             "gluteos", "panturrilha", "abdomen", "cardio", "corpo_todo", "alongamento");
@@ -196,7 +199,7 @@ public class Treinos {
             Ficha anterior = fichaAtiva(aluno);
             if (anterior != null) anterior.status = Ficha.ENCERRADA;
             f.inicio = Matriculas.hoje();
-            f.validade = f.inicio.plusWeeks(SEMANAS_PADRAO);
+            f.validade = f.inicio.plusWeeks(configuracoes.config(storeId).validadeFichaSemanas);
         }
         f.persistAndFlush(); // grava já, para a resposta trazer os ids
         return f;
