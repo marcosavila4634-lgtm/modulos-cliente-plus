@@ -107,9 +107,18 @@ public class Matriculas {
                 situacao(ativa, proxima),
                 matricula,
                 ficha != null ? Treinos.resumo(ficha) : null,
+                frequencia(c),
                 Pagamento.<Pagamento>list("cliente = ?1 order by vencimento desc", c).stream()
                         .map(Matriculas::cobranca)
                         .toList());
+    }
+
+    private static Frequencia frequencia(Cliente c) {
+        long ultimos30 = Acesso.count("cliente = ?1 and resultado = ?2 and momento >= ?3",
+                c, Acesso.LIBERADO, OffsetDateTime.now().minusDays(30));
+        Acesso ultima = Acesso.<Acesso>find("cliente = ?1 and resultado = ?2 order by momento desc", c, Acesso.LIBERADO)
+                .firstResult();
+        return new Frequencia((int) ultimos30, ultima != null ? ultima.momento : null);
     }
 
     // ---------- Alterações ----------

@@ -57,6 +57,8 @@ export type AlunoDetalhe = {
   } | null;
   // ficha de treino ativa (null = sem ficha)
   ficha: FichaResumo | null;
+  // entradas (check-ins)
+  frequencia: { ultimos30Dias: number; ultimaEntrada: string | null };
   cobrancas: Cobranca[];
 };
 

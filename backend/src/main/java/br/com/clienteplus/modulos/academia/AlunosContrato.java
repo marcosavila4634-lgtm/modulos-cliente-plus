@@ -66,7 +66,11 @@ public final class AlunosContrato {
             MatriculaAtual matricula,
             // ficha de treino ativa (null = sem ficha)
             TreinosContrato.FichaResumo ficha,
+            Frequencia frequencia,
             List<Cobranca> cobrancas) {}
+
+    // Entradas (check-ins) do aluno.
+    public record Frequencia(int ultimos30Dias, OffsetDateTime ultimaEntrada) {}
 
     // Cards do topo do Faturamento (mês atual).
     public record ResumoFaturamento(

@@ -3,10 +3,12 @@ import {
   ArrowLeft,
   Cake,
   CalendarCheck,
+  DoorOpen,
   Dumbbell,
   ExternalLink,
   FilePlus,
   HandCoins,
+  HeartPulse,
   IdCard,
   Mail,
   Pencil,
@@ -26,15 +28,18 @@ import { Botao, MensagemErro, mensagemDe, Modal } from "../../../components/acad
 import { Card, TituloCard } from "../../../components/academia/ui";
 import { apiAlunos, fmt, periodicidade, prazo, type Cobranca } from "../../../lib/academia-alunos";
 import { apiTreinos } from "../../../lib/academia-treinos";
+import { corImc, num, rotuloImc, rotuloSituacaoAvaliacao, apiAvaliacoes } from "../../../lib/academia-avaliacoes";
+import { diaHora } from "../../../lib/academia-acesso";
 
 export const Route = createFileRoute("/academia/alunos/$id")({
   loader: async ({ params }) => {
-    const [aluno, planos, treinos] = await Promise.all([
+    const [aluno, planos, treinos, avaliacoes] = await Promise.all([
       apiAlunos.buscar(params.id),
       apiAlunos.planos(),
       apiTreinos.painel(),
+      apiAvaliacoes.historico(params.id),
     ]);
-    return { aluno, planos, modelos: treinos.modelos };
+    return { aluno, planos, modelos: treinos.modelos, avaliacoes };
   },
   component: FichaAluno,
 });
@@ -50,7 +55,8 @@ function idade(nascimento: string) {
 }
 
 function FichaAluno() {
-  const { aluno, planos, modelos } = Route.useLoaderData();
+  const { aluno, planos, modelos, avaliacoes } = Route.useLoaderData();
+  const avaliacao = avaliacoes.avaliacoes[0];
   const router = useRouter();
   const [janela, setJanela] = useState<Janela>(null);
 
@@ -233,6 +239,84 @@ function FichaAluno() {
           </div>
         )}
       </Card>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
+        <Card>
+          <TituloCard
+            icone={HeartPulse}
+            cor="text-red-400"
+            acao={
+              <Link
+                to="/academia/avaliacao-fisica/$alunoId"
+                params={{ alunoId: aluno.id }}
+                className="text-xs font-medium text-violet-300 hover:text-violet-200"
+              >
+                Ver histórico
+              </Link>
+            }
+          >
+            Avaliação física
+          </TituloCard>
+          {avaliacao ? (
+            <>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Info rotulo="Peso">{num(avaliacao.peso)} kg</Info>
+                <Info rotulo="IMC">
+                  {num(avaliacao.imc)}
+                  <div className={`text-[11px] font-normal ${corImc[avaliacao.classificacaoImc]}`}>
+                    {rotuloImc[avaliacao.classificacaoImc]}
+                  </div>
+                </Info>
+                <Info rotulo="% gordura">{avaliacao.gorduraPct !== null ? `${num(avaliacao.gorduraPct)}%` : "—"}</Info>
+                <Info rotulo="Última">
+                  {fmt.data(avaliacao.data)}
+                  <div
+                    className={`text-[11px] font-normal ${avaliacoes.situacao === "pendente" ? "text-amber-300" : "text-ac-muted"}`}
+                  >
+                    {rotuloSituacaoAvaliacao[avaliacoes.situacao]}
+                  </div>
+                </Info>
+              </div>
+              {avaliacao.restricoes && (
+                <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  Atenção: {avaliacao.restricoes}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-ac-line p-4">
+              <span className="text-sm text-slate-300">Este aluno ainda não fez avaliação física.</span>
+              <Link
+                to="/academia/avaliacao-fisica/nova"
+                search={{ aluno: aluno.id }}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 px-4 text-sm font-semibold text-white"
+              >
+                <FilePlus className="size-4" />
+                Avaliar
+              </Link>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <TituloCard icone={DoorOpen} cor="text-emerald-400">
+            Frequência
+          </TituloCard>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Info rotulo="Últimos 30 dias">
+              {aluno.frequencia.ultimos30Dias} {aluno.frequencia.ultimos30Dias === 1 ? "entrada" : "entradas"}
+            </Info>
+            <Info rotulo="Última entrada">
+              {aluno.frequencia.ultimaEntrada ? diaHora(aluno.frequencia.ultimaEntrada) : "—"}
+            </Info>
+          </div>
+          {m && aluno.frequencia.ultimos30Dias === 0 && (
+            <p className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              Sem vir à academia há mais de 30 dias: risco de cancelamento. Vale um contato.
+            </p>
+          )}
+        </Card>
+      </div>
 
       <Card>
         <TituloCard icone={ReceiptText} cor="text-emerald-400">
