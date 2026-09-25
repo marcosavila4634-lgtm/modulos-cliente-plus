@@ -83,10 +83,21 @@ frontend/   Vite + React + TanStack Router + Tailwind v4 + lucide-react
 scripts/mvnw.mjs     chama backend/mvnw(.cmd) a partir dos scripts npm
 ```
 
-- **Banco H2 em memória** em modo PostgreSQL (pedido do usuário). O Flyway
-  apaga e recria tudo a cada início (`clean-at-start`), então os dados voltam
-  ao exemplo sempre que o backend reinicia. Editar um `.sql` com o
-  `npm run dev` ligado reinicia o backend sozinho.
+- **Banco H2 em memória** em modo PostgreSQL (pedido do usuário). Cada
+  (re)início do backend cria um banco novo (URL **sem** `DB_CLOSE_DELAY`, pool
+  com `min-size=1` para o banco não sumir com o backend ligado) e o Flyway
+  roda tudo; os dados voltam ao exemplo sempre que o backend reinicia. Editar
+  um `.sql` ou `.java` com o `npm run dev` ligado reinicia o backend sozinho.
+  **Não voltar a usar `clean-at-start` + `DB_CLOSE_DELAY=-1`**: depois de
+  várias recargas o H2 2.4 corrompia uma regra CHECK ("Check constraint
+  invalid") e fechava o banco ("database has been closed") nas gravações.
+- Testes com `curl` no Git Bash: texto com acento no JSON chega com
+  codificação errada (erro 400); o navegador manda certo.
+- Arquivos enviados (imagens/vídeos): `POST /api/arquivos` (multipart, campo
+  `arquivo`; imagens até 8 MB, vídeos até 100 MB), gravados em
+  `backend/data/uploads` (ignorado pelo git) e servidos em
+  `/api/arquivos/<nome>` com suporte a Range (`comum/Arquivos.java`). No
+  projeto principal: Supabase Storage; no banco fica só a URL.
 - SQL precisa rodar no H2 **e** no Supabase: escrever
   `timestamp with time zone` (H2 não aceita `timestamptz`), `default` antes de
   `primary key`, intervalos como `interval '5' minute`, e `integer` em vez de
@@ -147,7 +158,7 @@ scripts/mvnw.mjs     chama backend/mvnw(.cmd) a partir dos scripts npm
   - Ativo = matrícula ativa no dia (inclui em atraso). Inadimplência = % dos
     ativos com mensalidade vencida e não paga (variação em pontos).
     Faturamento/receita = pagas no mês pela data do pagamento.
-  - Alertas: mensalidades_atrasadas, vencem_em_breve (7 dias), sem_matricula,
+  - Alertas: mensalidades_atrasadas, vencem_em_breve (7 dias), sem_matricula, fichas_treino,
     cancelamentos (cada um é link para Faturamento ou Alunos).
   - Atividades: matricula, pagamento, cancelamento, novo_aluno (5 últimas).
   - Check-ins hoje / Horários de pico mostram "Em breve" (checkinsHoje null,
@@ -174,8 +185,35 @@ scripts/mvnw.mjs     chama backend/mvnw(.cmd) a partir dos scripts npm
     do topo já levam a essas telas.
 - **Fase 2 (parcial): Dashboard real pronto.** O usuário pediu para deixar o
   Check-in para depois. Lançamento de despesas também ainda não existe.
-- Próximas fases combinadas: Check-in (manual primeiro, depois catraca);
-  3) Treinos/Exercícios/Avaliação/Aulas; 4) Comissão, Relatórios, extras.
+- **Treinos — Etapa 1 pronta.** Decisões do usuário: toda ficha tem professor
+  responsável; o aluno vê o treino na **área do cliente do Cliente Plus**;
+  exercícios com texto, imagem (upload), vídeo (upload) e link de vídeo.
+  - Tabelas (`V5__academia_treinos.sql`): `academia_profissionais`,
+    `academia_exercicios`, `academia_fichas` (sem `cliente_id` = MODELO),
+    `academia_ficha_treinos` (A, B, C...), `academia_ficha_exercicios`. FK de
+    `cliente_id` para o cliente simulado fica em `cliente-plus-simulado/V6`.
+    Exemplo em `V105__demo_treinos.sql` (4 professores, 63 exercícios,
+    3 modelos, fichas para 3/4 dos alunos ativos com validades variadas).
+  - Regras em `Treinos.java`: 1 ficha ativa por aluno (montar nova encerra a
+    anterior); validade padrão 8 semanas; situação vencida / vence_em_breve
+    (7 dias) / em_dia; salvar troca a ficha inteira (treinos e exercícios).
+  - API: `ProfissionaisResource`, `ExerciciosResource`, `TreinosResource`
+    (`GET /academia/treinos`, `POST/GET/PUT /academia/fichas`,
+    `POST /academia/fichas/{id}/excluir`), `AreaClienteResource`
+    (`GET /area-cliente/{clienteId}/treino`). Contrato em
+    `TreinosContrato.java` ↔ `frontend/src/lib/academia-treinos.ts`.
+  - Telas: `/academia/profissionais`, `/academia/exercicios`,
+    `/academia/treinos` (abas Fichas dos alunos / Modelos),
+    `/academia/treinos/$fichaId` (editor único para modelo e ficha de aluno,
+    avisa ao sair sem salvar), cartão "Treino" na ficha do aluno.
+  - Área do cliente SIMULADA em `/cliente/$alunoId` (fora do layout da
+    academia, visual do Cliente Plus, feita para celular). No projeto
+    principal vira uma aba "Meu treino" na área do cliente real.
+  - Dashboard: alerta `fichas_treino` e atalho "Ficha de treino".
+- Próximas etapas de treino combinadas: aluno marca exercício feito e anota a
+  carga; depois evolução de carga e ligação com Avaliação física/Check-in.
+- Outras fases: Check-in (manual primeiro, depois catraca); Avaliação física,
+  Aulas e turmas; Comissão, Relatórios, extras.
 - Os outros itens do menu abrem `/academia/<secao>` com "Tela em construção".
 - Fotos em `frontend/public/academia/` (Unsplash, licença livre), que podem ser
   trocadas pelas da academia.

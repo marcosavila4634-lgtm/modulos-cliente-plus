@@ -43,7 +43,7 @@ public record DashboardAcademia(
     // Vazio até existir o Check-in.
     public record HorarioPico(String hora, int ocupacao) {}
 
-    // tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "cancelamentos"
+    // tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "fichas_treino" | "cancelamentos"
     public record Alerta(String tipo, String titulo, String descricao) {}
 
     // despesas fica null até existir o lançamento de despesas.

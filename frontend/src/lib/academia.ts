@@ -18,7 +18,7 @@ export type DashboardAcademia = {
   // vazio até existir o Check-in
   horariosPico: { hora: string; ocupacao: number }[];
   alertas: {
-    tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "cancelamentos";
+    tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "fichas_treino" | "cancelamentos";
     titulo: string;
     descricao: string;
   }[];

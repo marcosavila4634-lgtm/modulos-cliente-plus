@@ -3,6 +3,8 @@ import {
   ArrowLeft,
   Cake,
   CalendarCheck,
+  Dumbbell,
+  ExternalLink,
   FilePlus,
   HandCoins,
   IdCard,
@@ -16,22 +18,28 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ModalAluno, ModalMatricular } from "../../../components/academia/ModaisAluno";
+import { ModalMontarFicha } from "../../../components/academia/ModalMontarFicha";
 import { ModalReceber } from "../../../components/academia/ModalReceber";
-import { AvatarAluno, SeloSituacao } from "../../../components/academia/Selos";
+import { AvatarAluno, SeloFicha, SeloSituacao } from "../../../components/academia/Selos";
 import { TabelaCobrancas } from "../../../components/academia/TabelaCobrancas";
 import { Botao, MensagemErro, mensagemDe, Modal } from "../../../components/academia/formulario";
 import { Card, TituloCard } from "../../../components/academia/ui";
 import { apiAlunos, fmt, periodicidade, prazo, type Cobranca } from "../../../lib/academia-alunos";
+import { apiTreinos } from "../../../lib/academia-treinos";
 
 export const Route = createFileRoute("/academia/alunos/$id")({
   loader: async ({ params }) => {
-    const [aluno, planos] = await Promise.all([apiAlunos.buscar(params.id), apiAlunos.planos()]);
-    return { aluno, planos };
+    const [aluno, planos, treinos] = await Promise.all([
+      apiAlunos.buscar(params.id),
+      apiAlunos.planos(),
+      apiTreinos.painel(),
+    ]);
+    return { aluno, planos, modelos: treinos.modelos };
   },
   component: FichaAluno,
 });
 
-type Janela = "editar" | "matricular" | "cancelar" | { receber: Cobranca } | null;
+type Janela = "editar" | "matricular" | "cancelar" | "ficha" | { receber: Cobranca } | null;
 
 function idade(nascimento: string) {
   const [a, m, d] = nascimento.split("-").map(Number);
@@ -42,7 +50,7 @@ function idade(nascimento: string) {
 }
 
 function FichaAluno() {
-  const { aluno, planos } = Route.useLoaderData();
+  const { aluno, planos, modelos } = Route.useLoaderData();
   const router = useRouter();
   const [janela, setJanela] = useState<Janela>(null);
 
@@ -176,6 +184,57 @@ function FichaAluno() {
       </div>
 
       <Card>
+        <TituloCard icone={Dumbbell} cor="text-fuchsia-400">
+          Treino
+        </TituloCard>
+        {aluno.ficha ? (
+          <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-poppins text-lg font-bold text-white">{aluno.ficha.nome}</span>
+                <SeloFicha situacao={aluno.ficha.situacao} />
+              </div>
+              <div className="mt-0.5 text-xs text-ac-muted">
+                Treinos {aluno.ficha.divisoes} · Professor: {aluno.ficha.professor ?? "—"} · Validade{" "}
+                {fmt.data(aluno.ficha.validade)}
+              </div>
+            </div>
+            <div className="ml-auto flex flex-wrap gap-3">
+              <Link
+                to="/academia/treinos/$fichaId"
+                params={{ fichaId: aluno.ficha.id }}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-ac-line bg-ac-card-2 px-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:text-white"
+              >
+                <Pencil className="size-4" />
+                Abrir ficha
+              </Link>
+              <Botao onClick={() => setJanela("ficha")}>
+                <FilePlus className="size-4" />
+                Montar nova ficha
+              </Botao>
+              <a
+                href={`/cliente/${aluno.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center gap-1.5 px-1 text-sm text-sky-400 hover:text-sky-300"
+              >
+                <ExternalLink className="size-4" />
+                Ver como o aluno vê
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-ac-line p-4">
+            <span className="text-sm text-slate-300">Este aluno ainda não tem ficha de treino.</span>
+            <Botao variante="primario" onClick={() => setJanela("ficha")}>
+              <FilePlus className="size-4" />
+              Montar ficha
+            </Botao>
+          </div>
+        )}
+      </Card>
+
+      <Card>
         <TituloCard icone={ReceiptText} cor="text-emerald-400">
           Mensalidades
         </TituloCard>
@@ -192,7 +251,15 @@ function FichaAluno() {
       {janela === "matricular" && (
         <ModalMatricular aluno={aluno} planos={planos} aoFechar={fechar} aoSalvar={recarregar} />
       )}
-      {janela === "cancelar" && <ModalCancelar alunoId={aluno.id} aoFechar={fechar} aoCancelar={recarregar} />}
+      {janela === "ficha" && (
+        <ModalMontarFicha
+          aluno={{ id: aluno.id, nome: aluno.nome }}
+          temFichaAtual={!!aluno.ficha}
+          modelos={modelos}
+          aoFechar={fechar}
+        />
+      )}
+      {janela === "cancelar" &&<ModalCancelar alunoId={aluno.id} aoFechar={fechar} aoCancelar={recarregar} />}
       {janela && typeof janela === "object" && (
         <ModalReceber cobranca={janela.receber} aoFechar={fechar} aoReceber={recarregar} />
       )}

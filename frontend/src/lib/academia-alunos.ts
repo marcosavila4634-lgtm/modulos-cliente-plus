@@ -2,6 +2,7 @@
 // Contrato com o backend: backend/src/main/java/br/com/clienteplus/modulos/academia/AlunosContrato.java
 // (alunos, planos e matrículas são clientes, planos e assinaturas do Cliente Plus).
 
+import type { FichaResumo } from "./academia-treinos";
 import { http } from "./http";
 
 export type Situacao = "ativo" | "em_atraso" | "sem_matricula";
@@ -54,6 +55,8 @@ export type AlunoDetalhe = {
     inicio: string;
     proximoVencimento: string | null;
   } | null;
+  // ficha de treino ativa (null = sem ficha)
+  ficha: FichaResumo | null;
   cobrancas: Cobranca[];
 };
 

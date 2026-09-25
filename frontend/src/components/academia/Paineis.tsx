@@ -5,6 +5,7 @@ import {
   ChartLine,
   ChevronRight,
   Clock,
+  Dumbbell,
   FileText,
   HandCoins,
   ListChecks,
@@ -143,6 +144,7 @@ const estiloAlerta: Record<
   mensalidades_atrasadas: { icone: CalendarX, cor: "bg-red-500/15 text-red-400 border-red-500/30" },
   vencem_em_breve: { icone: CalendarClock, cor: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   sem_matricula: { icone: UserX, cor: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
+  fichas_treino: { icone: Dumbbell, cor: "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/30" },
   cancelamentos: { icone: UserMinus, cor: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
 };
 
@@ -151,6 +153,7 @@ const destinoAlerta: Record<DashboardAcademia["alertas"][number]["tipo"], LinkPr
   mensalidades_atrasadas: { to: "/academia/faturamento" },
   vencem_em_breve: { to: "/academia/faturamento" },
   sem_matricula: { to: "/academia/alunos", search: { filtro: "sem_matricula" } },
+  fichas_treino: { to: "/academia/treinos", search: { filtro: "vencida" } },
   cancelamentos: { to: "/academia/alunos", search: { filtro: "sem_matricula" } },
 };
 

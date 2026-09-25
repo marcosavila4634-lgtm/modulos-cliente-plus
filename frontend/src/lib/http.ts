@@ -11,6 +11,7 @@ async function requisicao<T>(metodo: string, caminho: string, corpo?: unknown): 
     const erro = await res.json().catch(() => null);
     throw new Error(erro?.error ?? `Erro ${res.status} ao acessar ${caminho}`);
   }
+  if (res.status === 204) return undefined as T; // resposta sem conteúdo
   return res.json() as Promise<T>;
 }
 

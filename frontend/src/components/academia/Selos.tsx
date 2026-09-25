@@ -1,3 +1,4 @@
+import { rotuloSituacaoFicha, type SituacaoFicha } from "../../lib/academia-treinos";
 import {
   iniciais,
   rotuloCobranca,
@@ -55,4 +56,15 @@ export function AvatarAluno({ nome, grande = false }: { nome: string; grande?: b
       {iniciais(nome)}
     </span>
   );
+}
+
+const coresFicha: Record<SituacaoFicha, string> = {
+  sem_ficha: "bg-slate-500/20 text-slate-300",
+  vencida: "bg-red-500/15 text-red-300",
+  vence_em_breve: "bg-amber-500/15 text-amber-300",
+  em_dia: "bg-emerald-500/15 text-emerald-300",
+};
+
+export function SeloFicha({ situacao }: { situacao: SituacaoFicha }) {
+  return <span className={`${base} ${coresFicha[situacao]}`}>{rotuloSituacaoFicha[situacao]}</span>;
 }

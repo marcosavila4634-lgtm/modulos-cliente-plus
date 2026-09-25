@@ -8,5 +8,8 @@ dist/
 # Arquivos gerados pelo Maven (backend Java)
 backend/target/
 
+# Arquivos enviados no laboratório (imagens e vídeos)
+backend/data/
+
 # Gerado automaticamente pelo TanStack Router
 frontend/src/routeTree.gen.ts

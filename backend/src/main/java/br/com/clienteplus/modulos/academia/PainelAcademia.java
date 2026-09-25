@@ -51,6 +51,7 @@ public class PainelAcademia {
                 Cliente.list("storeId", storeId),
                 Assinatura.list("storeId", storeId),
                 Pagamento.list("storeId", storeId),
+                Ficha.list("storeId = ?1 and status = ?2 and cliente is not null", storeId, Ficha.ATIVA),
                 Matriculas.hoje());
 
         List<Alerta> alertas = alertas(d);
@@ -72,7 +73,11 @@ public class PainelAcademia {
 
     // Tudo o que o cálculo usa, carregado uma vez só.
     private record Dados(
-            List<Cliente> clientes, List<Assinatura> matriculas, List<Pagamento> pagamentos, LocalDate hoje) {
+            List<Cliente> clientes,
+            List<Assinatura> matriculas,
+            List<Pagamento> pagamentos,
+            List<Ficha> fichas,
+            LocalDate hoje) {
 
         YearMonth mesAtual() {
             return YearMonth.from(hoje);
@@ -236,6 +241,19 @@ public class PainelAcademia {
                     "sem_matricula",
                     plural(semMatricula, "aluno sem matrícula", "alunos sem matrícula"),
                     "Oportunidade de matrícula ou rematrícula"));
+        }
+
+        // Fichas de treino dos alunos ativos que precisam ser renovadas.
+        Map<String, Long> fichasPorSituacao = d.fichas().stream()
+                .filter(f -> comMatricula.contains(f.cliente.id))
+                .collect(Collectors.groupingBy(Treinos::situacao, Collectors.counting()));
+        long fichasVencidas = fichasPorSituacao.getOrDefault("vencida", 0L);
+        long fichasVencendo = fichasPorSituacao.getOrDefault("vence_em_breve", 0L);
+        if (fichasVencidas + fichasVencendo > 0) {
+            alertas.add(new Alerta(
+                    "fichas_treino",
+                    plural(fichasVencidas + fichasVencendo, "ficha de treino para renovar", "fichas de treino para renovar"),
+                    fichasVencidas + " vencidas · " + fichasVencendo + " vencem em até 7 dias"));
         }
 
         YearMonth mes = d.mesAtual();

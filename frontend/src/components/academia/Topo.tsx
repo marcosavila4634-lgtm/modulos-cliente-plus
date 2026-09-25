@@ -124,7 +124,7 @@ const acoes: Acao[] = [
     cor: "text-blue-400",
     link: { to: "/academia/alunos", search: { filtro: "sem_matricula" } },
   },
-  { rotulo: "Ficha de treino", icone: Dumbbell, cor: "text-violet-400" },
+  { rotulo: "Ficha de treino", icone: Dumbbell, cor: "text-violet-400", link: { to: "/academia/treinos" } },
   { rotulo: "Avaliação física", icone: ClipboardList, cor: "text-blue-400" },
   { rotulo: "Nova aula", icone: Users, cor: "text-violet-400" },
   { rotulo: "Cobrança", icone: CreditCard, cor: "text-teal-300", link: { to: "/academia/faturamento" } },

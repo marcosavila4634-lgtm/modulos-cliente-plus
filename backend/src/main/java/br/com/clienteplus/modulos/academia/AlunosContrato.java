@@ -64,6 +64,8 @@ public final class AlunosContrato {
             OffsetDateTime alunoDesde,
             String situacao,
             MatriculaAtual matricula,
+            // ficha de treino ativa (null = sem ficha)
+            TreinosContrato.FichaResumo ficha,
             List<Cobranca> cobrancas) {}
 
     // Cards do topo do Faturamento (mês atual).

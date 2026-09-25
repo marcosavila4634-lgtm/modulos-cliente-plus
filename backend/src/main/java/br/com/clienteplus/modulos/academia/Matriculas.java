@@ -10,6 +10,7 @@ import br.com.clienteplus.modulos.clienteplus.Pagamento;
 import br.com.clienteplus.modulos.clienteplus.Plano;
 import br.com.clienteplus.modulos.comum.Erro;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -25,6 +26,9 @@ import java.util.UUID;
 // - Ao cancelar, as mensalidades em aberto são canceladas.
 @ApplicationScoped
 public class Matriculas {
+
+    @Inject
+    Treinos treinos;
 
     static final Set<String> FORMAS_PAGAMENTO = Set.of("dinheiro", "pix", "cartao_credito", "cartao_debito", "boleto");
 
@@ -83,6 +87,7 @@ public class Matriculas {
     public AlunoDetalhe detalhe(Cliente c) {
         Assinatura ativa = matriculaAtiva(c);
         Pagamento proxima = proximaMensalidade(ativa);
+        Ficha ficha = treinos.fichaAtiva(c);
         MatriculaAtual matricula = ativa == null
                 ? null
                 : new MatriculaAtual(
@@ -101,6 +106,7 @@ public class Matriculas {
                 c.createdAt,
                 situacao(ativa, proxima),
                 matricula,
+                ficha != null ? Treinos.resumo(ficha) : null,
                 Pagamento.<Pagamento>list("cliente = ?1 order by vencimento desc", c).stream()
                         .map(Matriculas::cobranca)
                         .toList());
