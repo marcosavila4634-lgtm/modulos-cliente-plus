@@ -1,0 +1,17 @@
+{
+  "name": "modulos-cliente-plus",
+  "private": true,
+  "description": "Laboratório local para criar e testar novos módulos do Cliente Plus antes de levá-los ao projeto principal.",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend -c magenta,cyan \"npm run dev:backend\" \"npm run dev -w frontend\"",
+    "dev:backend": "node scripts/mvnw.mjs -ntp quarkus:dev -Dquarkus.console.enabled=false -Dquarkus.analytics.disabled=true",
+    "build": "node scripts/mvnw.mjs -q package -DskipTests && npm run build -w frontend",
+    "typecheck": "node scripts/mvnw.mjs -q compile && npm run typecheck -w frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

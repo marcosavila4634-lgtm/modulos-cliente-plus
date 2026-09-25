@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/* Identidade visual do painel Cliente Plus: tema escuro, roxo e rosa. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Inter", ui-sans-serif, sans-serif;
+
+  --color-bg: #0a090f;
+  --color-surface: #121118;
+  --color-surface-2: #1a1822;
+  --color-line: #25232e;
+  --color-fg: #f4f3f7;
+  --color-muted: #9a97a8;
+  --color-brand: #a855f7;
+  --color-brand-2: #ec4899;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+
+  /* Módulo Academia (Gestão Plus Academia): azul-marinho escuro. */
+  --font-poppins: "Poppins", "Inter", ui-sans-serif, sans-serif;
+  --font-impact: "Anton", "Impact", sans-serif;
+  --color-ac-bg: #080d1a;
+  --color-ac-side: #0a1020;
+  --color-ac-card: #0e1527;
+  --color-ac-card-2: #131c33;
+  --color-ac-line: #1c2640;
+  --color-ac-muted: #8d96ab;
+
+  /* Módulo Grupos VIP: azul-marinho quase preto com laranja. */
+  --font-script: "Caveat", cursive;
+  --color-gv-bg: #060a13;
+  --color-gv-side: #070c17;
+  --color-gv-card: #0b111e;
+  --color-gv-card-2: #10182a;
+  --color-gv-line: #1a2338;
+  --color-gv-muted: #8a93a6;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.bg-brand-gradient {
+  background-image: linear-gradient(90deg, var(--color-brand), var(--color-brand-2));
+}

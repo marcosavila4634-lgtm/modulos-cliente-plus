@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.env
+.env.local
+
+# Arquivos gerados pelo Maven (backend Java)
+backend/target/
+
+# Gerado automaticamente pelo TanStack Router
+frontend/src/routeTree.gen.ts
