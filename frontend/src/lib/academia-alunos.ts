@@ -37,6 +37,8 @@ export type Cobranca = {
   status: StatusCobranca;
   pagoEm: string | null;
   formaPagamento: FormaPagamento | null;
+  // avulso = venda de serviço (plano = o que foi vendido)
+  tipo: "mensalidade" | "avulso";
 };
 
 export type AlunoDetalhe = {

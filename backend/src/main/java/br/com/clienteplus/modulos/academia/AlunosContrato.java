@@ -43,6 +43,7 @@ public final class AlunosContrato {
     public record MatriculaAtual(UUID id, PlanoJson plano, Number valor, LocalDate inicio, LocalDate proximoVencimento) {}
 
     // status: "pendente" | "atrasada" | "paga" | "cancelada"
+    // tipo: "mensalidade" | "avulso" (venda de serviço; plano = o que foi vendido)
     public record Cobranca(
             UUID id,
             UUID alunoId,
@@ -52,7 +53,8 @@ public final class AlunosContrato {
             LocalDate vencimento,
             String status,
             OffsetDateTime pagoEm,
-            String formaPagamento) {}
+            String formaPagamento,
+            String tipo) {}
 
     public record AlunoDetalhe(
             UUID id,

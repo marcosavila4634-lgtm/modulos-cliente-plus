@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  CalendarDays,
   ChevronDown,
   Clock,
   Dumbbell,
@@ -12,21 +13,35 @@ import {
   Weight,
 } from "lucide-react";
 import { useState } from "react";
+import { AbaAulasAluno } from "../components/academia/AbaAulasAluno";
 import { MiniaturaExercicio, VideoExercicio } from "../components/academia/MidiaExercicio";
+import { apiAgenda } from "../lib/academia-agenda";
 import { fmt } from "../lib/academia-alunos";
 import { apiTreinos, descanso, seriesERepeticoes, type ItemFicha } from "../lib/academia-treinos";
 
 // SIMULAÇÃO da área do cliente do Cliente Plus (projeto principal), aba
 // "Meu treino". No Cliente Plus o aluno entra logado; aqui ele é escolhido
 // pelo endereço /cliente/<id do aluno>.
+type Aba = "treino" | "aulas" | "indicacoes" | "carteira";
+
 export const Route = createFileRoute("/cliente/$alunoId")({
-  loader: ({ params }) => apiTreinos.treinoDoAluno(params.alunoId),
+  validateSearch: (s: Record<string, unknown>): { aba?: Aba } => ({
+    aba: s.aba === "aulas" ? "aulas" : undefined,
+  }),
+  loader: async ({ params }) => {
+    const [treino, aulas] = await Promise.all([
+      apiTreinos.treinoDoAluno(params.alunoId),
+      apiAgenda.aulasDoAluno(params.alunoId),
+    ]);
+    return { ...treino, aulas };
+  },
   component: AreaDoCliente,
 });
 
 function AreaDoCliente() {
-  const { academia, aluno, ficha } = Route.useLoaderData();
-  const [aba, setAba] = useState<"treino" | "indicacoes" | "carteira">("treino");
+  const { academia, aluno, ficha, aulas } = Route.useLoaderData();
+  const { alunoId } = Route.useParams();
+  const [aba, setAba] = useState<Aba>(Route.useSearch().aba ?? "treino");
   const [treino, setTreino] = useState(0);
   const primeiroNome = aluno.split(" ")[0];
   const atual = ficha?.treinos[treino];
@@ -109,6 +124,8 @@ function AreaDoCliente() {
               </>
             )}
           </main>
+        ) : aba === "aulas" ? (
+          <AbaAulasAluno alunoId={alunoId} aulas={aulas} />
         ) : (
           <main className="px-4 pt-5">
             <div className="rounded-2xl border border-line bg-surface p-6 text-center text-sm text-muted">
@@ -120,10 +137,11 @@ function AreaDoCliente() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-3">
+        <div className="mx-auto grid max-w-md grid-cols-4">
           {(
             [
               ["treino", "Meu treino", Dumbbell],
+              ["aulas", "Aulas", CalendarDays],
               ["indicacoes", "Indicações", Gift],
               ["carteira", "Carteira", Wallet],
             ] as const

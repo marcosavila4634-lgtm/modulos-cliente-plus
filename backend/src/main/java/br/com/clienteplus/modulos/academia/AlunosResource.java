@@ -48,7 +48,7 @@ public class AlunosResource {
 
         // A mensalidade em aberto mais antiga de cada matrícula.
         Map<UUID, Pagamento> proximaPorMatricula = Pagamento.<Pagamento>list(
-                        "storeId = ?1 and status = ?2 order by vencimento", storeId, Pagamento.PENDENTE)
+                        "storeId = ?1 and status = ?2 and assinatura is not null order by vencimento", storeId, Pagamento.PENDENTE)
                 .stream()
                 .collect(Collectors.toMap(p -> p.assinatura.id, Function.identity(), (a, b) -> a));
 

@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
-// Uma mensalidade de uma assinatura. Os pagamentos com status "pago" são os
+// Uma mensalidade de uma assinatura (ou um pagamento avulso, sem assinatura). Os pagamentos com status "pago" são os
 // pagamentos confirmados que geram comissões de indicação no Cliente Plus.
 @Entity
 @Table(name = "cp_pagamentos")
@@ -36,6 +36,8 @@ public class Pagamento extends EntidadeDaLoja {
     public String formaPagamento;
     // módulo que registrou o pagamento (ex.: "academia")
     public String origem;
+    // pagamento avulso (sem assinatura): o que foi vendido
+    public String descricao;
 
     @CreationTimestamp
     public OffsetDateTime createdAt;

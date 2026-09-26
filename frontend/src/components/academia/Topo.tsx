@@ -131,7 +131,12 @@ const acoes: Acao[] = [
     cor: "text-blue-400",
     link: { to: "/academia/avaliacao-fisica", search: { nova: true } },
   },
-  { rotulo: "Nova aula", icone: Users, cor: "text-violet-400" },
+  {
+    rotulo: "Nova aula",
+    icone: Users,
+    cor: "text-violet-400",
+    link: { to: "/academia/aulas-e-turmas", search: { nova: true } },
+  },
   { rotulo: "Cobrança", icone: CreditCard, cor: "text-teal-300", link: { to: "/academia/faturamento" } },
   { rotulo: "Relatório", icone: ChartColumn, cor: "text-violet-400" },
 ];

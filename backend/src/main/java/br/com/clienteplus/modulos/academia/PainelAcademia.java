@@ -109,7 +109,7 @@ public class PainelAcademia {
             List<Assinatura> ativas = ativasEm(dia);
             if (ativas.isEmpty()) return 0;
             Set<UUID> emAtraso = pagamentos.stream()
-                    .filter(p -> p.vencimento.isBefore(dia)
+                    .filter(p -> p.assinatura != null && p.vencimento.isBefore(dia)
                             && !(Pagamento.PAGO.equals(p.status) && !dia(p.pagoEm).isAfter(dia)))
                     .map(p -> p.assinatura.id)
                     .collect(Collectors.toSet());
@@ -230,7 +230,7 @@ public class PainelAcademia {
         List<Alerta> alertas = new ArrayList<>();
         Set<UUID> ativas = d.ativasEm(hoje).stream().map(m -> m.id).collect(Collectors.toSet());
         Predicate<Pagamento> emAbertoDeAtiva =
-                p -> Pagamento.PENDENTE.equals(p.status) && ativas.contains(p.assinatura.id);
+                p -> Pagamento.PENDENTE.equals(p.status) && p.assinatura != null && ativas.contains(p.assinatura.id);
 
         List<Pagamento> atrasadas = d.pagamentos().stream()
                 .filter(emAbertoDeAtiva.and(p -> p.vencimento.isBefore(hoje)))

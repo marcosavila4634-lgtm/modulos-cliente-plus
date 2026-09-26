@@ -72,12 +72,13 @@ public class Matriculas {
                 p.id,
                 p.cliente.id,
                 p.cliente.nome,
-                p.assinatura.plano.nome,
+                p.assinatura != null ? p.assinatura.plano.nome : p.descricao,
                 numero(p.valor),
                 p.vencimento,
                 status,
                 p.pagoEm,
-                p.formaPagamento);
+                p.formaPagamento,
+                p.assinatura != null ? "mensalidade" : "avulso");
     }
 
     public static PlanoJson plano(Plano p) {
@@ -176,9 +177,9 @@ public class Matriculas {
     @Transactional
     public Pagamento receber(UUID storeId, UUID pagamentoId, Receber pedido) {
         Pagamento p = Pagamento.findById(pagamentoId);
-        if (p == null || !p.storeId.equals(storeId)) throw Erro.naoEncontrado("Mensalidade não encontrada");
-        if (Pagamento.PAGO.equals(p.status)) throw Erro.conflito("Esta mensalidade já foi paga");
-        if (Pagamento.CANCELADO.equals(p.status)) throw Erro.conflito("Esta mensalidade foi cancelada");
+        if (p == null || !p.storeId.equals(storeId)) throw Erro.naoEncontrado("Cobrança não encontrada");
+        if (Pagamento.PAGO.equals(p.status)) throw Erro.conflito("Esta cobrança já foi paga");
+        if (Pagamento.CANCELADO.equals(p.status)) throw Erro.conflito("Esta cobrança foi cancelada");
         String forma = pedido != null ? pedido.formaPagamento() : null;
         if (forma == null || !FORMAS_PAGAMENTO.contains(forma)) throw Erro.invalido("Escolha a forma de pagamento");
 
@@ -187,6 +188,7 @@ public class Matriculas {
         p.formaPagamento = forma;
 
         Assinatura m = p.assinatura;
+        if (m == null) return p; // avulso: não gera próxima
         boolean temOutraEmAberto = Pagamento.count("assinatura = ?1 and status = ?2", m, Pagamento.PENDENTE) > 0;
         if (Assinatura.ATIVA.equals(m.status) && !temOutraEmAberto) {
             novaMensalidade(m, p.vencimento.plusMonths(m.plano.duracaoMeses));
