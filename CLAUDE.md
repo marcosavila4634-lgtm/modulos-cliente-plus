@@ -145,84 +145,102 @@ scripts/mvnw.mjs     chama backend/mvnw(.cmd) a partir dos scripts npm
   próprios em `frontend/src/components/<slug>/`.
 - Atualize o `status` do módulo em `db/dados-demo/V101__demo_modulos.sql` conforme avança.
 
-## Módulo Academia ("Gestão Plus Academia") — em desenvolvimento
+## Módulo Academia ("Gestão Plus Academia") — pronto para migrar
+
+Todas as abas do menu funcionam (o usuário pediu para terminar o módulo sem
+perguntar; as decisões tomadas estão abaixo e podem ser revistas por ele).
 
 - Abre em `/academia` em tela cheia, com menu e topo próprios (layout em
   `frontend/src/routes/academia.tsx`, componentes em
   `frontend/src/components/academia/`, cores `ac-*` em `index.css`).
-- Dashboard recriado a partir de um print enviado pelo usuário. **Números
-  reais**: `GET /api/academia/dashboard` é calculado em `PainelAcademia.java`
-  a partir de `cp_clientes/cp_assinaturas/cp_pagamentos` (formato em
-  `DashboardAcademia.java` ↔ `frontend/src/lib/academia.ts`). Só o cabeçalho
-  (nome, gestor, frase) vem de `academia_painel`.
-  - Ativo = matrícula ativa no dia (inclui em atraso). Inadimplência = % dos
-    ativos com mensalidade vencida e não paga (variação em pontos).
-    Faturamento/receita = pagas no mês pela data do pagamento.
-  - Alertas: mensalidades_atrasadas, vencem_em_breve (7 dias), sem_matricula, fichas_treino,
-    cancelamentos (cada um é link para Faturamento ou Alunos).
-  - Atividades: matricula, pagamento, cancelamento, novo_aluno (5 últimas).
-  - Check-ins hoje / Horários de pico mostram "Em breve" (checkinsHoje null,
-    horariosPico vazio). Gráfico vira "Receita mensal" enquanto `despesas`
-    for null (não existe lançamento de despesas ainda).
-  - `V104__demo_alunos.sql` gera +120 alunos com 8 meses de histórico
-    (H2 `system_range(...) as r (x)`: a coluna precisa de apelido).
-- **Fase 1 pronta: Alunos + Matrícula + Faturamento.** Aluno = cliente,
-  matrícula = assinatura, mensalidade = pagamento do Cliente Plus.
-  - Telas: `/academia/alunos` (lista, filtros, busca, "Novo aluno" com
-    matrícula opcional), `/academia/alunos/$id` (ficha, editar, matricular,
-    cancelar, receber, histórico) e `/academia/faturamento` (resumo do mês,
-    abas a receber/em atraso/pagas/todas, receber).
-  - API: `AlunosResource`, `PlanosResource`, `CobrancasResource`; regras em
-    `Matriculas.java`; formatos em `AlunosContrato.java` ↔
-    `frontend/src/lib/academia-alunos.ts`.
-  - Regras: matricular cria a 1ª mensalidade (vence no início); receber cria a
-    próxima (vencimento + duração do plano) enquanto a matrícula está ativa;
-    cancelar cancela as em aberto. "Atrasada"/"em atraso" = pendente com
-    vencimento antes de hoje (calculado, não gravado). Pagamento `pago` com
-    `origem='academia'` é o que o motor de comissões consome.
-  - Planos são cadastrados no Cliente Plus; o módulo só lista (sem tela).
-  - Atalhos do Dashboard "Novo aluno", "Nova matrícula" e "Cobrança" e a busca
-    do topo já levam a essas telas.
-- **Fase 2 (parcial): Dashboard real pronto.** O usuário pediu para deixar o
-  Check-in para depois. Lançamento de despesas também ainda não existe.
-- **Treinos — Etapa 1 pronta.** Decisões do usuário: toda ficha tem professor
-  responsável; o aluno vê o treino na **área do cliente do Cliente Plus**;
-  exercícios com texto, imagem (upload), vídeo (upload) e link de vídeo.
-  - Tabelas (`V5__academia_treinos.sql`): `academia_profissionais`,
-    `academia_exercicios`, `academia_fichas` (sem `cliente_id` = MODELO),
-    `academia_ficha_treinos` (A, B, C...), `academia_ficha_exercicios`. FK de
-    `cliente_id` para o cliente simulado fica em `cliente-plus-simulado/V6`.
-    Exemplo em `V105__demo_treinos.sql` (4 professores, 63 exercícios,
-    3 modelos, fichas para 3/4 dos alunos ativos com validades variadas).
-  - Regras em `Treinos.java`: 1 ficha ativa por aluno (montar nova encerra a
-    anterior); validade padrão 8 semanas; situação vencida / vence_em_breve
-    (7 dias) / em_dia; salvar troca a ficha inteira (treinos e exercícios).
-  - API: `ProfissionaisResource`, `ExerciciosResource`, `TreinosResource`
-    (`GET /academia/treinos`, `POST/GET/PUT /academia/fichas`,
-    `POST /academia/fichas/{id}/excluir`), `AreaClienteResource`
-    (`GET /area-cliente/{clienteId}/treino`). Contrato em
-    `TreinosContrato.java` ↔ `frontend/src/lib/academia-treinos.ts`.
-  - Telas: `/academia/profissionais`, `/academia/exercicios`,
-    `/academia/treinos` (abas Fichas dos alunos / Modelos),
-    `/academia/treinos/$fichaId` (editor único para modelo e ficha de aluno,
-    avisa ao sair sem salvar), cartão "Treino" na ficha do aluno.
-  - Área do cliente SIMULADA em `/cliente/$alunoId` (fora do layout da
-    academia, visual do Cliente Plus, feita para celular). No projeto
-    principal vira uma aba "Meu treino" na área do cliente real.
-  - Dashboard: alerta `fichas_treino` e atalho "Ficha de treino".
-- Próximas etapas de treino combinadas: aluno marca exercício feito e anota a
-  carga; depois evolução de carga e ligação com Avaliação física/Check-in.
-- Outras fases: Check-in (manual primeiro, depois catraca); Avaliação física,
-  Aulas e turmas; Comissão, Relatórios, extras.
-- Os outros itens do menu abrem `/academia/<secao>` com "Tela em construção".
-- Fotos em `frontend/public/academia/` (Unsplash, licença livre), que podem ser
-  trocadas pelas da academia.
-- Gráficos em recharts com animação desligada (`isAnimationActive={false}`),
-  para ficarem iguais ao print e aparecerem nas capturas automáticas.
-- O usuário pediu para tirar "Planos" e "Matrículas" do menu (existem no
-  Cliente Plus; no módulo a matrícula é feita pela ficha do aluno).
+- Padrão de cada parte: tabelas em `db/migration/V*.sql`, FKs para o cliente
+  simulado em `db/cliente-plus-simulado/`, exemplo em `db/dados-demo/V1xx`,
+  regras numa classe de serviço, rotas em `*Resource.java`, formatos em
+  `*Contrato.java` ↔ `frontend/src/lib/academia-*.ts`, telas em
+  `frontend/src/routes/academia/`. Componentes comuns: `ui.tsx` (Card,
+  CardNumero, Abas, CabecalhoPagina, Vazio), `formulario.tsx` (Modal, Campo,
+  Botao, Interruptor), `SeletorAluno.tsx`.
+- **Dashboard** (`PainelAcademia.java` ↔ `lib/academia.ts`): tudo calculado dos
+  dados. Ativo = matrícula ativa no dia. Inadimplência = % dos ativos com
+  mensalidade vencida. Receita = pagamentos recebidos no mês; despesas = pagas
+  no mês (null enquanto não houver nenhuma). Check-ins hoje e horários de pico
+  vêm dos acessos. Alertas: mensalidades_atrasadas, vencem_em_breve,
+  sem_matricula, fichas_treino, sem_frequencia (14+ dias sem vir),
+  reavaliacao, cancelamentos. O sininho do topo lista os mesmos alertas.
+  Todos os atalhos levam às telas.
+- **Alunos / Matrícula / Faturamento** (`Matriculas.java`, `AlunosContrato`).
+  Aluno = cliente, matrícula = assinatura, mensalidade = pagamento do Cliente
+  Plus. Matricular cria a 1ª mensalidade; receber cria a próxima; cancelar
+  cancela as em aberto. "Atrasada" = pendente vencida (calculado). Pagamento
+  `pago` com `origem='academia'` é o que o motor de comissões consome. Planos
+  são do Cliente Plus (o módulo só lista). A ficha do aluno mostra também
+  treino, evolução de carga, avaliação física e frequência.
+  - Faturamento tem 3 partes (`?secao=`): Receitas (mensalidades e serviços),
+    Despesas (`academia_despesas`, recorrente = ao pagar cria a do mês
+    seguinte) e Resultado (regime de caixa, 6 meses, por categoria e forma).
+  - **Pagamentos avulsos** (venda de serviço) ficam em `cp_pagamentos` SEM
+    assinatura e com `descricao` (`cliente-plus-simulado/V13`). CONFIRMAR na
+    migração como o Cliente Plus real guarda pagamento avulso. Todo código que
+    usa `p.assinatura` precisa checar null.
+- **Check-in e Controle de acesso** (`Acessos.java`, `AcessoContrato` ↔
+  `lib/academia-acesso.ts`, `V7`). Tabela `academia_acessos` (liberado =
+  check-in; tentativas bloqueadas de dispositivos também ficam). Bloqueia, nesta
+  ordem: bloqueio manual, sem matrícula, atraso além da tolerância (padrão 5
+  dias), fora do horário. Recepção pode "liberar mesmo assim" (fica marcado).
+  Entrada repetida dentro do intervalo (60 min) não conta. Catraca/leitor chama
+  `POST /api/academia/acesso/dispositivos/entrada` com o token do dispositivo e
+  o CPF (ou id do aluno); não existe integração com catraca real (decisão:
+  deixar a API pronta e o "Testar entrada" na tela). No Supabase isso vira uma
+  Edge Function com service role.
+- **Horários de pico** (`HorariosPico.java`): média de entradas por dia da
+  semana e hora nas últimas N semanas; ocupação = média / capacidade
+  (Configurações; demo = 12 pessoas).
+- **Configurações** (`Configuracoes.java`, `academia_config` +
+  `academia_horarios`): dados da academia, gestor/frase (continuam em
+  `academia_painel`), horário de funcionamento, capacidade, validade padrão da
+  ficha, prazo de reavaliação. Regras de entrada ficam no Controle de acesso.
+- **Treinos** (`Treinos.java`, `V5`). Toda ficha tem professor; 1 ficha ativa
+  por aluno; validade padrão em Configurações; salvar troca a ficha inteira.
+  Área do cliente SIMULADA em `/cliente/$alunoId` (`?aba=aulas|beneficios`),
+  que no projeto principal vira abas na área do cliente real: Meu treino
+  (aluno marca exercício feito e anota a carga, `academia_treino_registros`,
+  guardado por exercício), Aulas (reserva) e Benefícios (resgate).
+- **Avaliação física** (`Avaliacoes.java`, `V9`): peso, altura, IMC (OMS),
+  % de gordura digitado (bioimpedância) ou pelas 7 dobras (Jackson & Pollock +
+  Siri), medidas, pressão, restrições. Sexo fica na avaliação (o cliente do
+  Cliente Plus não tem). Reavaliação vencida após N dias (Configurações).
+- **Aulas e turmas** (`Aulas.java`, `V12`): aula → horários na semana → turma
+  fixa e reservas avulsas por data; ocupação = fixos − fixos que avisaram que
+  não vão + avulsos; chamada presente/faltou até o dia da aula.
+- **Agenda** (`Agenda.java`, `V11`): horários com profissionais (serviço,
+  avaliação, compromisso). Não deixa marcar em cima de outro horário nem de
+  uma aula do profissional. Concluir um serviço pode gerar a cobrança.
+- **Serviços** (`Servicos.java`): preço, duração (aparece na Agenda), % de
+  comissão do profissional (copiado na venda) e se gera comissão de indicação.
+- **Comissão** (`Financeiro.java`): profissionais = % sobre vendas pagas no mês;
+  "Pagar" cria uma despesa "comissoes" (`academia_comissoes_pagas`).
+  Indicações = SIMULAÇÃO do motor do Cliente Plus (`cp_clientes.indicado_por_id`
+  e `cp_programa_indicacao` em `cliente-plus-simulado/V16`, 10/5/2%); no
+  projeto principal essa aba passa a ler do Cliente Plus.
+- **Benefícios** (`Beneficios.java`, `V15`): tipos parceiro (cupom),
+  indicacao, fidelidade (meses), aniversario (1x/ano), frequencia (check-ins no
+  mês, 1x/mês). Resgate pela recepção ou pelo app; "entregue" marca a entrega.
+  Pode se juntar ao "Benefícios" que já existe no Cliente Plus na migração.
+- **Relatórios** (`Relatorios.java`): alunos por mês (churn), aniversariantes,
+  sumidos (7/14/30 dias, com WhatsApp), inadimplência, aulas, profissionais.
+  Cada tabela baixa CSV (`;` e BOM, para o Excel) e a tela imprime.
+- Dados de exemplo: `V104` alunos, `V105` treinos, `V106` acessos (9 semanas),
+  `V107` avaliações, `V108` serviços/vendas/aulas/agenda, `V109` despesas,
+  comissões, indicações e benefícios, `V110` treinos marcados. H2:
+  `system_range(...) as r (x)` precisa do apelido da coluna; `lateral` e
+  `hash()[1]` não foram usados (evitar).
+- Fotos em `frontend/public/academia/` (Unsplash, licença livre).
+- Gráficos em recharts com animação desligada (`isAnimationActive={false}`).
+- O usuário pediu para tirar "Planos" e "Matrículas" do menu.
 - Testar no celular: o Chrome headless não abre janela < ~500px; para 390px
   usar emulação pelo protocolo do Chrome (Emulation.setDeviceMetricsOverride).
+- No terminal (Bash), evitar `node -e "..."` com crases de template string:
+  o Bash as executa. Para edições grandes, escrever um script `.mjs`.
 
 ## Módulo Grupos VIP ("Gestão Plus Grupos VIP") — em desenvolvimento
 

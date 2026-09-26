@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import {
   CalendarDays,
+  Check,
   ChevronDown,
   Clock,
   Dumbbell,
@@ -20,7 +21,7 @@ import { apiFinanceiro } from "../lib/academia-financeiro";
 import { MiniaturaExercicio, VideoExercicio } from "../components/academia/MidiaExercicio";
 import { apiAgenda } from "../lib/academia-agenda";
 import { fmt } from "../lib/academia-alunos";
-import { apiTreinos, descanso, seriesERepeticoes, type ItemFicha } from "../lib/academia-treinos";
+import { apiTreinos, descanso, seriesERepeticoes, type ItemFicha, type RegistroTreino } from "../lib/academia-treinos";
 
 // SIMULAÇÃO da área do cliente do Cliente Plus (projeto principal), aba
 // "Meu treino". No Cliente Plus o aluno entra logado; aqui ele é escolhido
@@ -43,10 +44,14 @@ export const Route = createFileRoute("/cliente/$alunoId")({
 });
 
 function AreaDoCliente() {
-  const { academia, aluno, ficha, aulas, beneficios } = Route.useLoaderData();
+  const { academia, aluno, ficha, aulas, beneficios, registrosHoje, ultimasCargas, diasTreinadosMes } =
+    Route.useLoaderData();
   const { alunoId } = Route.useParams();
   const [aba, setAba] = useState<Aba>(Route.useSearch().aba ?? "treino");
-  const [treino, setTreino] = useState(0);
+  // abre no treino que o aluno já começou hoje
+  const [treino, setTreino] = useState(() =>
+    Math.max(0, ficha?.treinos.findIndex((t) => registrosHoje.some((r) => r.letra === t.letra)) ?? 0),
+  );
   const primeiroNome = aluno.split(" ")[0];
   const atual = ficha?.treinos[treino];
 
@@ -119,8 +124,26 @@ function AreaDoCliente() {
                   ))}
                 </div>
 
+                {atual && (
+                  <ProgressoHoje
+                    feitos={registrosHoje.filter((r) => r.letra === atual.letra && r.feito).length}
+                    total={atual.exercicios.length}
+                    diasMes={diasTreinadosMes}
+                  />
+                )}
+
                 <ol className="flex flex-col gap-3">
-                  {atual?.exercicios.map((item, i) => <CartaoExercicio key={item.id} numero={i + 1} item={item} />)}
+                  {atual?.exercicios.map((item, i) => (
+                    <CartaoExercicio
+                      key={item.id}
+                      numero={i + 1}
+                      item={item}
+                      alunoId={alunoId}
+                      letra={atual.letra}
+                      registro={registrosHoje.find((r) => r.letra === atual.letra && r.exercicioId === item.exercicio.id)}
+                      ultima={ultimasCargas.find((c) => c.exercicioId === item.exercicio.id)}
+                    />
+                  ))}
                   {atual && atual.exercicios.length === 0 && (
                     <li className="py-6 text-center text-sm text-muted">Nenhum exercício neste treino.</li>
                   )}
@@ -171,13 +194,68 @@ function AreaDoCliente() {
   );
 }
 
-function CartaoExercicio({ numero, item }: { numero: number; item: ItemFicha }) {
+function ProgressoHoje({ feitos, total, diasMes }: { feitos: number; total: number; diasMes: number }) {
+  const pct = total > 0 ? Math.round((feitos * 100) / total) : 0;
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-4">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">
+          {feitos === total && total > 0 ? "Treino de hoje concluído!" : `Hoje: ${feitos} de ${total} exercícios`}
+        </span>
+        <span className="text-xs text-muted">
+          {diasMes} {diasMes === 1 ? "dia treinado" : "dias treinados"} no mês
+        </span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="bg-brand-gradient h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </section>
+  );
+}
+
+// "22,5" -> 22.5
+const lerKg = (t: string) => {
+  const n = Number(t.replace(",", ".").replace(/[^\d.]/g, ""));
+  return t.trim() && Number.isFinite(n) ? n : null;
+};
+
+function CartaoExercicio({
+  numero,
+  item,
+  alunoId,
+  letra,
+  registro,
+  ultima,
+}: {
+  numero: number;
+  item: ItemFicha;
+  alunoId: string;
+  letra: string;
+  registro?: RegistroTreino;
+  ultima?: { cargaKg: number; data: string };
+}) {
+  const router = useRouter();
   const [aberto, setAberto] = useState(false);
+  const [carga, setCarga] = useState(registro?.cargaKg != null ? String(registro.cargaKg).replace(".", ",") : "");
+  const [salvando, setSalvando] = useState(false);
   const e = item.exercicio;
   const temDetalhes = !!(e.instrucoes || e.imagemUrl || e.videoUrl || e.videoLink || item.observacao);
+  const feito = !!registro?.feito;
+  const usaCarga = !["cardio", "alongamento", "abdomen", "corpo_todo"].includes(e.grupoMuscular);
+
+  async function salvar(novoFeito: boolean, novaCarga: string) {
+    setSalvando(true);
+    try {
+      await apiTreinos.registrar(alunoId, { letra, exercicioId: e.id, feito: novoFeito, cargaKg: lerKg(novaCarga) });
+      await router.invalidate();
+    } catch {
+      // mantém como estava; o aluno pode tentar de novo
+    }
+    setSalvando(false);
+  }
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <li className={`overflow-hidden rounded-2xl border bg-surface transition ${feito ? "border-emerald-500/50" : "border-line"}`}>
       <button
         type="button"
         onClick={() => setAberto((a) => !a)}
@@ -223,6 +301,44 @@ function CartaoExercicio({ numero, item }: { numero: number; item: ItemFicha }) 
           {e.instrucoes && <p className="text-sm leading-relaxed text-muted">{e.instrucoes}</p>}
         </div>
       )}
+      <div className="flex items-center gap-2 border-t border-line px-3 py-2">
+        <button
+          type="button"
+          disabled={salvando}
+          onClick={() => salvar(!feito, carga)}
+          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+            feito ? "bg-emerald-500/20 text-emerald-300" : "bg-white/5 text-fg"
+          }`}
+        >
+          <span
+            className={`grid size-4 place-items-center rounded-full border ${
+              feito ? "border-emerald-400 bg-emerald-400 text-bg" : "border-muted"
+            }`}
+          >
+            {feito && <Check className="size-3" strokeWidth={3} />}
+          </span>
+          {feito ? "Feito" : "Marcar feito"}
+        </button>
+        {usaCarga && (
+          <label className="ml-auto flex items-center gap-1.5 text-xs text-muted">
+            Carga
+            <input
+              inputMode="decimal"
+              value={carga}
+              onChange={(ev) => setCarga(ev.target.value)}
+              onBlur={() => {
+                if ((lerKg(carga) ?? null) !== (registro?.cargaKg ?? null)) salvar(feito || !!carga.trim(), carga);
+              }}
+              placeholder={ultima ? String(ultima.cargaKg).replace(".", ",") : "0"}
+              className="h-8 w-16 rounded-lg border border-line bg-bg px-2 text-right text-sm text-fg outline-none focus:border-brand"
+            />
+            kg
+          </label>
+        )}
+        {usaCarga && ultima && !registro?.cargaKg && (
+          <span className="text-[10px] text-muted">última: {String(ultima.cargaKg).replace(".", ",")}</span>
+        )}
+      </div>
     </li>
   );
 }

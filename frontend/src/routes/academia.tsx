@@ -24,7 +24,7 @@ function LayoutAcademia() {
 
   return (
     <div className="flex h-full bg-ac-bg text-slate-100">
-      <div className="hidden h-full lg:block">
+      <div className="hidden h-full lg:block print:hidden">
         <SidebarAcademia {...sidebar} recolhida={recolhida} />
       </div>
 
@@ -40,11 +40,11 @@ function LayoutAcademia() {
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <TopbarAcademia
           nomeAcademia={d.academia.nome}
-          notificacoes={d.notificacoes}
+          alertas={d.alertas}
           demo={d.demo}
           aoAlternarMenu={alternarMenu}
         />
-        <main className="flex-1 px-4 pt-2 pb-8 md:px-6">
+        <main className="flex-1 px-4 pt-2 pb-8 md:px-6 print:px-0">
           <Outlet />
         </main>
       </div>

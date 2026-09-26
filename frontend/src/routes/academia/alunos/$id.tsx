@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { EvolucaoCarga } from "../../../components/academia/EvolucaoCarga";
 import { ModalAluno, ModalMatricular } from "../../../components/academia/ModaisAluno";
 import { ModalMontarFicha } from "../../../components/academia/ModalMontarFicha";
 import { ModalReceber } from "../../../components/academia/ModalReceber";
@@ -33,13 +34,14 @@ import { diaHora } from "../../../lib/academia-acesso";
 
 export const Route = createFileRoute("/academia/alunos/$id")({
   loader: async ({ params }) => {
-    const [aluno, planos, treinos, avaliacoes] = await Promise.all([
+    const [aluno, planos, treinos, avaliacoes, treinosFeitos] = await Promise.all([
       apiAlunos.buscar(params.id),
       apiAlunos.planos(),
       apiTreinos.painel(),
       apiAvaliacoes.historico(params.id),
+      apiTreinos.treinosFeitos(params.id),
     ]);
-    return { aluno, planos, modelos: treinos.modelos, avaliacoes };
+    return { aluno, planos, modelos: treinos.modelos, avaliacoes, treinosFeitos };
   },
   component: FichaAluno,
 });
@@ -55,7 +57,7 @@ function idade(nascimento: string) {
 }
 
 function FichaAluno() {
-  const { aluno, planos, modelos, avaliacoes } = Route.useLoaderData();
+  const { aluno, planos, modelos, avaliacoes, treinosFeitos } = Route.useLoaderData();
   const avaliacao = avaliacoes.avaliacoes[0];
   const router = useRouter();
   const [janela, setJanela] = useState<Janela>(null);
@@ -239,6 +241,8 @@ function FichaAluno() {
           </div>
         )}
       </Card>
+
+      {aluno.ficha && <EvolucaoCarga dados={treinosFeitos} />}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card>

@@ -37,6 +37,9 @@ public class AlunosResource {
     @Inject
     Matriculas matriculas;
 
+    @Inject
+    RegistrosTreino registros;
+
     // Lista completa com a situação de cada aluno; a busca e os filtros são
     // feitos na tela.
     @GET
@@ -84,6 +87,13 @@ public class AlunosResource {
     @Path("/{id}")
     public AlunoDetalhe buscar(@PathParam("id") UUID id) {
         return matriculas.detalhe(matriculas.aluno(storeId, id));
+    }
+
+    // Dias treinados (marcados pelo aluno na área do cliente) e evolução de carga.
+    @GET
+    @Path("/{id}/treinos-feitos")
+    public TreinosContrato.TreinosFeitos treinosFeitos(@PathParam("id") UUID id) {
+        return registros.treinosFeitos(matriculas.aluno(storeId, id));
     }
 
     @POST

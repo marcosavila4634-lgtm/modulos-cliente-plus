@@ -22,7 +22,6 @@ public record DashboardAcademia(
 
     public record Gestor(String nome, String cargo) {}
 
-    // checkinsHoje fica null até existir o Check-in.
     public record Indicadores(
             ComUltimoMes alunosAtivos,
             ComMesAnterior matriculasMes,
@@ -40,13 +39,14 @@ public record DashboardAcademia(
 
     public record EvolucaoAlunos(String mes, int ativos, int novos) {}
 
-    // Vazio até existir o Check-in.
+    // As 7 horas mais cheias do dia da semana de hoje (média das últimas 4 semanas).
     public record HorarioPico(String hora, int ocupacao) {}
 
-    // tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "fichas_treino" | "cancelamentos"
+    // tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "fichas_treino" |
+    //       "sem_frequencia" | "reavaliacao" | "cancelamentos"
     public record Alerta(String tipo, String titulo, String descricao) {}
 
-    // despesas fica null até existir o lançamento de despesas.
+    // despesas fica null enquanto não houver nenhuma despesa paga.
     public record ReceitaDespesas(String mes, Number receita, Number despesas) {}
 
     public record TipoPlano(String nome, int percentual) {}

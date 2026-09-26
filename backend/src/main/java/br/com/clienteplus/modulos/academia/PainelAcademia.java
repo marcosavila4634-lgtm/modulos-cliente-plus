@@ -50,6 +50,9 @@ public class PainelAcademia {
     @Inject
     Financeiro financeiro;
 
+    @Inject
+    Configuracoes configuracoes;
+
     public DashboardAcademia montar(UUID storeId) {
         AcademiaPainel painel = AcademiaPainel.<AcademiaPainel>find("storeId", storeId)
                 .firstResultOptional()
@@ -63,6 +66,10 @@ public class PainelAcademia {
                 Matriculas.hoje());
 
         List<Alerta> alertas = alertas(d);
+        // frequência e reavaliação entram antes do alerta de cancelamentos
+        int pos = alertas.isEmpty() || !"cancelamentos".equals(alertas.get(alertas.size() - 1).tipo())
+                ? alertas.size() : alertas.size() - 1;
+        alertas.addAll(pos, alertasDeAcompanhamento(storeId, d));
 
         return new DashboardAcademia(
                 true,
@@ -291,6 +298,42 @@ public class PainelAcademia {
                     "Mês anterior: " + cancelamentosNoMes(d, mes.minusMonths(1))));
         }
         return alertas;
+    }
+
+    // Alunos ativos que sumiram (14+ dias sem check-in) e com reavaliação física vencida.
+    private List<Alerta> alertasDeAcompanhamento(UUID storeId, Dados d) {
+        List<Alerta> lista = new ArrayList<>();
+        Set<UUID> ativos = d.ativasEm(d.hoje()).stream().map(m -> m.cliente.id).collect(Collectors.toSet());
+        Map<UUID, LocalDate> inicioMatricula = new java.util.HashMap<>();
+        for (Assinatura m : d.ativasEm(d.hoje())) inicioMatricula.put(m.cliente.id, m.inicio);
+
+        Map<UUID, OffsetDateTime> ultimaEntrada = new java.util.HashMap<>();
+        for (Acesso a : Acesso.<Acesso>list("storeId = ?1 and resultado = ?2", storeId, Acesso.LIBERADO)) {
+            ultimaEntrada.merge(a.cliente.id, a.momento, (x, y) -> x.isAfter(y) ? x : y);
+        }
+        LocalDate limite = d.hoje().minusDays(14);
+        long sumidos = ativos.stream()
+                .filter(id -> inicioMatricula.get(id).isBefore(limite))
+                .filter(id -> ultimaEntrada.get(id) == null || dia(ultimaEntrada.get(id)).isBefore(limite))
+                .count();
+        if (sumidos > 0) {
+            lista.add(new Alerta("sem_frequencia", plural(sumidos, "aluno sem vir há 14 dias ou mais", "alunos sem vir há 14 dias ou mais"),
+                    "Risco de cancelamento: vale um contato"));
+        }
+
+        int dias = configuracoes.config(storeId).reavaliacaoDias;
+        Map<UUID, LocalDate> ultimaAvaliacao = new java.util.HashMap<>();
+        for (Avaliacao a : Avaliacao.<Avaliacao>list("storeId", storeId)) {
+            ultimaAvaliacao.merge(a.cliente.id, a.data, (x, y) -> x.isAfter(y) ? x : y);
+        }
+        long vencidas = ativos.stream()
+                .filter(id -> ultimaAvaliacao.containsKey(id) && ultimaAvaliacao.get(id).plusDays(dias).isBefore(d.hoje()))
+                .count();
+        if (vencidas > 0) {
+            lista.add(new Alerta("reavaliacao", plural(vencidas, "reavaliação física vencida", "reavaliações físicas vencidas"),
+                    "Última avaliação há mais de " + dias + " dias"));
+        }
+        return lista;
     }
 
     private static long cancelamentosNoMes(Dados d, YearMonth mes) {

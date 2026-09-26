@@ -5,9 +5,11 @@ import {
   ChartLine,
   ChevronRight,
   Clock,
+  DoorClosed,
   Dumbbell,
   FileText,
   HandCoins,
+  HeartPulse,
   ListChecks,
   TriangleAlert,
   UserMinus,
@@ -108,8 +110,8 @@ export function HorariosPico({ dados }: { dados: DashboardAcademia["horariosPico
       {dados.length === 0 && (
         <div className="mt-5 grid min-h-[190px] place-content-center rounded-xl border border-dashed border-ac-line p-6 text-center">
           <Clock className="mx-auto size-8 text-ac-muted" />
-          <p className="mt-2 text-sm text-slate-300">Em breve</p>
-          <p className="mt-1 text-xs text-ac-muted">Calculado a partir dos check-ins dos alunos.</p>
+          <p className="mt-2 text-sm text-slate-300">Sem dados ainda</p>
+          <p className="mt-1 text-xs text-ac-muted">Aparece quando houver check-ins nas últimas semanas.</p>
         </div>
       )}
       <ul className="mt-5 flex flex-col gap-[15px]">
@@ -137,7 +139,7 @@ export function HorariosPico({ dados }: { dados: DashboardAcademia["horariosPico
 
 // ---------- Requer atenção ----------
 
-const estiloAlerta: Record<
+export const estiloAlerta: Record<
   DashboardAcademia["alertas"][number]["tipo"],
   { icone: LucideIcon; cor: string }
 > = {
@@ -145,15 +147,19 @@ const estiloAlerta: Record<
   vencem_em_breve: { icone: CalendarClock, cor: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   sem_matricula: { icone: UserX, cor: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
   fichas_treino: { icone: Dumbbell, cor: "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/30" },
+  sem_frequencia: { icone: DoorClosed, cor: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
+  reavaliacao: { icone: HeartPulse, cor: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
   cancelamentos: { icone: UserMinus, cor: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
 };
 
 // Para onde cada alerta leva ao clicar.
-const destinoAlerta: Record<DashboardAcademia["alertas"][number]["tipo"], LinkProps> = {
+export const destinoAlerta: Record<DashboardAcademia["alertas"][number]["tipo"], LinkProps> = {
   mensalidades_atrasadas: { to: "/academia/faturamento" },
   vencem_em_breve: { to: "/academia/faturamento" },
   sem_matricula: { to: "/academia/alunos", search: { filtro: "sem_matricula" } },
   fichas_treino: { to: "/academia/treinos", search: { filtro: "vencida" } },
+  sem_frequencia: { to: "/academia/relatorios", search: { aba: "frequencia" } },
+  reavaliacao: { to: "/academia/avaliacao-fisica", search: { filtro: "pendente" } },
   cancelamentos: { to: "/academia/alunos", search: { filtro: "sem_matricula" } },
 };
 

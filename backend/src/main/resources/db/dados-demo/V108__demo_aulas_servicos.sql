@@ -112,7 +112,7 @@ where h.aula in ('Pilates solo', 'Yoga');
 -- Fixos: chamada (85% presentes). Avulsos: sorteados entre os ativos.
 insert into academia_aula_presencas (store_id, horario_id, cliente_id, data, avulso, status, origem, created_at)
 select '11111111-1111-4111-8111-111111111111', t.horario_id, t.cliente_id, dateadd('DAY', -r.x, current_date), false,
-       case when mod(r.x * 7 + h.hx, 7) = 0 then 'faltou' else 'presente' end, 'recepcao', now()
+       case when mod(r.x * 5 + h.hx * 3 + ascii(right(cast(t.cliente_id as varchar), 1)), 7) = 0 then 'faltou' else 'presente' end, 'recepcao', now()
 from academia_turma_alunos t
 join demo_horarios h on h.horario_id = t.horario_id
 cross join system_range(1, 21) as r (x)

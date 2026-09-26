@@ -46,12 +46,24 @@ public class AreaClienteResource {
     @Inject
     Beneficios beneficios;
 
+    @Inject
+    RegistrosTreino registros;
+
     @GET
     @Path("/{clienteId}/treino")
     public TreinoDoAluno treino(@PathParam("clienteId") UUID clienteId) {
         Cliente aluno = matriculas.aluno(storeId, clienteId);
         Ficha ficha = treinos.fichaAtiva(aluno);
-        return new TreinoDoAluno(nomeAcademia(), aluno.nome, ficha != null ? Treinos.json(ficha) : null);
+        return new TreinoDoAluno(nomeAcademia(), aluno.nome, ficha != null ? Treinos.json(ficha) : null,
+                registros.deHoje(aluno), registros.ultimasCargas(aluno), registros.diasTreinadosNoMes(aluno));
+    }
+
+    // Marcar um exercício de hoje como feito (e anotar a carga).
+    @POST
+    @Path("/{clienteId}/treino/registro")
+    public TreinoDoAluno registrar(@PathParam("clienteId") UUID clienteId, TreinosContrato.DadosRegistro dados) {
+        registros.registrar(storeId, matriculas.aluno(storeId, clienteId), dados);
+        return treino(clienteId);
     }
 
     // Aulas de hoje e dos próximos 6 dias que ainda não acabaram.

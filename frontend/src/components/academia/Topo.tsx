@@ -138,13 +138,13 @@ const acoes: Acao[] = [
     link: { to: "/academia/aulas-e-turmas", search: { nova: true } },
   },
   { rotulo: "Cobrança", icone: CreditCard, cor: "text-teal-300", link: { to: "/academia/faturamento" } },
-  { rotulo: "Relatório", icone: ChartColumn, cor: "text-violet-400" },
+  { rotulo: "Relatório", icone: ChartColumn, cor: "text-violet-400", link: { to: "/academia/relatorios" } },
 ];
 
 const classeAcao =
   "flex flex-col items-center justify-center gap-2 rounded-2xl border border-ac-line bg-gradient-to-b from-ac-card-2/70 to-ac-card px-2 py-3.5 text-center transition-colors hover:border-violet-500/50 hover:bg-ac-card-2";
 
-// Atalhos do Dashboard. Os que têm "link" já abrem a tela correspondente.
+// Atalhos do Dashboard.
 export function AcoesRapidas() {
   return (
     <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">

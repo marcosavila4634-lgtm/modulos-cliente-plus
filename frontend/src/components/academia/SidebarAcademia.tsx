@@ -26,8 +26,10 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
         <LogoGestaoPlus compacto={recolhida} />
       </div>
 
-      <button
-        type="button"
+      <Link
+        to="/academia/configuracoes"
+        onClick={aoNavegar}
+        title="Configurações da academia"
         className={`mx-3 mt-1 flex items-center gap-3 rounded-xl border border-ac-line bg-ac-card px-3 py-2.5 text-left hover:bg-ac-card-2 ${
           recolhida ? "justify-center px-0" : ""
         }`}
@@ -42,7 +44,7 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
             <ChevronDown className="size-4 text-ac-muted" />
           </>
         )}
-      </button>
+      </Link>
 
       <nav className="mt-3 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
         {menuAcademia.map(({ secao, rotulo, icone: Icone }) => {
@@ -101,8 +103,10 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
           )}
         </Link>
 
-        <button
-          type="button"
+        <Link
+          to="/academia/configuracoes"
+          onClick={aoNavegar}
+          title="Gestor e dados da academia"
           className={`mt-3 flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/5 ${
             recolhida ? "justify-center px-0" : ""
           }`}
@@ -117,7 +121,7 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
               <ChevronDown className="size-4 text-ac-muted" />
             </>
           )}
-        </button>
+        </Link>
       </div>
     </aside>
   );

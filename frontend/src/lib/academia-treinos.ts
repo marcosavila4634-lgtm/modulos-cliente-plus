@@ -121,7 +121,30 @@ export type DadosFicha = {
   }[];
 };
 
-export type TreinoDoAluno = { academia: string; aluno: string; ficha: Ficha | null };
+export type RegistroTreino = { letra: string; exercicioId: string; feito: boolean; cargaKg: number | null };
+
+// registrosHoje: o que o aluno já marcou hoje; ultimasCargas: última carga
+// anotada em cada exercício; diasTreinadosMes: dias com treino marcado no mês.
+export type TreinoDoAluno = {
+  academia: string;
+  aluno: string;
+  ficha: Ficha | null;
+  registrosHoje: RegistroTreino[];
+  ultimasCargas: { exercicioId: string; cargaKg: number; data: string }[];
+  diasTreinadosMes: number;
+};
+
+export type TreinosFeitos = {
+  diasMes: number;
+  dias30: number;
+  ultimoTreino: string | null;
+  exercicios: {
+    exercicioId: string;
+    nome: string;
+    grupoMuscular: GrupoMuscular;
+    pontos: { data: string; cargaKg: number }[];
+  }[];
+};
 
 export type ArquivoEnviado = { url: string; nome: string; tipo: "imagem" | "video" };
 
@@ -143,6 +166,10 @@ export const apiTreinos = {
   excluirFicha: (id: string) => http.post<void>(`/academia/fichas/${id}/excluir`),
 
   treinoDoAluno: (alunoId: string) => http.get<TreinoDoAluno>(`/area-cliente/${alunoId}/treino`),
+  // o aluno marca um exercício de hoje (e anota a carga)
+  registrar: (alunoId: string, r: RegistroTreino) =>
+    http.post<TreinoDoAluno>(`/area-cliente/${alunoId}/treino/registro`, r),
+  treinosFeitos: (alunoId: string) => http.get<TreinosFeitos>(`/academia/alunos/${alunoId}/treinos-feitos`),
 };
 
 // Envia uma imagem ou vídeo. Mostra o progresso (0 a 100) enquanto sobe.

@@ -11,18 +11,24 @@ export type DashboardAcademia = {
     matriculasMes: { valor: number; variacao: number; mesAnterior: number };
     faturamentoMensal: { valor: number; variacao: number; mesAnterior: number };
     inadimplencia: { valor: number; variacao: number; mesAnterior: number };
-    // null até existir o Check-in
     checkinsHoje: { valor: number; variacao: number; ultimo: string } | null;
   };
   evolucaoAlunos: { mes: string; ativos: number; novos: number }[];
-  // vazio até existir o Check-in
+  // as 7 horas mais cheias do dia da semana de hoje
   horariosPico: { hora: string; ocupacao: number }[];
   alertas: {
-    tipo: "mensalidades_atrasadas" | "vencem_em_breve" | "sem_matricula" | "fichas_treino" | "cancelamentos";
+    tipo:
+      | "mensalidades_atrasadas"
+      | "vencem_em_breve"
+      | "sem_matricula"
+      | "fichas_treino"
+      | "sem_frequencia"
+      | "reavaliacao"
+      | "cancelamentos";
     titulo: string;
     descricao: string;
   }[];
-  // despesas null até existir o lançamento de despesas
+  // despesas null enquanto não houver nenhuma despesa paga
   receitaDespesas: { mes: string; receita: number; despesas: number | null }[];
   tiposPlanos: { nome: string; percentual: number }[];
   atividades: {

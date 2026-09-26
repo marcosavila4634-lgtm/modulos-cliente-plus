@@ -123,5 +123,30 @@ public final class TreinosContrato {
     public record PainelTreinos(List<AlunoTreino> alunos, List<ModeloResumo> modelos, ContagemTreinos contagem) {}
 
     // Área do cliente (Cliente Plus): o que o aluno vê.
-    public record TreinoDoAluno(String academia, String aluno, FichaJson ficha) {}
+    // registrosHoje: o que já marcou hoje; ultimasCargas: a última carga
+    // anotada em cada exercício (para sugerir); diasTreinadosMes: dias com
+    // algum exercício feito no mês.
+    public record TreinoDoAluno(
+            String academia,
+            String aluno,
+            FichaJson ficha,
+            List<RegistroJson> registrosHoje,
+            List<UltimaCarga> ultimasCargas,
+            int diasTreinadosMes) {}
+
+    public record RegistroJson(String letra, UUID exercicioId, boolean feito, Number cargaKg) {}
+
+    public record UltimaCarga(UUID exercicioId, Number cargaKg, LocalDate data) {}
+
+    // Marcar/desmarcar um exercício de hoje. cargaKg vazio = não anotou.
+    public record DadosRegistro(String letra, UUID exercicioId, Boolean feito, java.math.BigDecimal cargaKg) {}
+
+    // ---------- Para o professor: treinos feitos e evolução de carga ----------
+
+    public record PontoCarga(LocalDate data, Number cargaKg) {}
+
+    public record EvolucaoExercicio(UUID exercicioId, String nome, String grupoMuscular, List<PontoCarga> pontos) {}
+
+    public record TreinosFeitos(
+            int diasMes, int dias30, LocalDate ultimoTreino, List<EvolucaoExercicio> exercicios) {}
 }
