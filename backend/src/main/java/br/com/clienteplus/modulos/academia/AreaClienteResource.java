@@ -43,6 +43,9 @@ public class AreaClienteResource {
     @Inject
     Configuracoes configuracoes;
 
+    @Inject
+    Beneficios beneficios;
+
     @GET
     @Path("/{clienteId}/treino")
     public TreinoDoAluno treino(@PathParam("clienteId") UUID clienteId) {
@@ -97,6 +100,18 @@ public class AreaClienteResource {
     }
 
     public record ReservaAluno(UUID horarioId, LocalDate data) {}
+
+    @GET
+    @Path("/{clienteId}/beneficios")
+    public FinanceiroContrato.BeneficiosDoAluno beneficios(@PathParam("clienteId") UUID clienteId) {
+        return beneficios.doAluno(storeId, matriculas.aluno(storeId, clienteId), nomeAcademia());
+    }
+
+    @POST
+    @Path("/{clienteId}/beneficios/{beneficioId}/resgatar")
+    public void resgatar(@PathParam("clienteId") UUID clienteId, @PathParam("beneficioId") UUID beneficioId) {
+        beneficios.resgatar(storeId, beneficioId, matriculas.aluno(storeId, clienteId), "area_cliente");
+    }
 
     private String nomeAcademia() {
         return configuracoes.painel(storeId).nomeAcademia;

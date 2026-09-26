@@ -2,6 +2,8 @@ package br.com.clienteplus.modulos.clienteplus;
 
 import br.com.clienteplus.modulos.comum.EntidadeDaLoja;
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -19,6 +21,11 @@ public class Cliente extends EntidadeDaLoja {
     // só números
     public String cpf;
     public LocalDate dataNascimento;
+
+    // quem indicou este cliente (programa de indicações)
+    @ManyToOne
+    @JoinColumn(name = "indicado_por_id")
+    public Cliente indicadoPor;
 
     @CreationTimestamp
     public OffsetDateTime createdAt;

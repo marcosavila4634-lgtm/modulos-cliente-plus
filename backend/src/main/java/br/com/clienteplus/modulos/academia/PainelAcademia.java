@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 //   paga naquele dia.
 // - Faturamento/receita = mensalidades pagas no mês (pela data do pagamento).
 // - Check-ins hoje e horários de pico: a partir dos acessos liberados.
+// - Despesas: as pagas no mês (Faturamento > Despesas).
 @ApplicationScoped
 public class PainelAcademia {
 
@@ -45,6 +46,9 @@ public class PainelAcademia {
 
     @Inject
     HorariosPico pico;
+
+    @Inject
+    Financeiro financeiro;
 
     public DashboardAcademia montar(UUID storeId) {
         AcademiaPainel painel = AcademiaPainel.<AcademiaPainel>find("storeId", storeId)
@@ -70,7 +74,7 @@ public class PainelAcademia {
                 evolucao(d),
                 pico.paraDashboard(storeId),
                 alertas,
-                receita(d),
+                receita(d, financeiro.despesasPorMes(storeId)),
                 tiposPlanos(d),
                 atividades(d));
     }
@@ -204,9 +208,11 @@ public class PainelAcademia {
                 .toList();
     }
 
-    private static List<ReceitaDespesas> receita(Dados d) {
+    // despesas null enquanto a academia não tiver nenhuma despesa paga.
+    private static List<ReceitaDespesas> receita(Dados d, Map<YearMonth, BigDecimal> despesas) {
         return ultimosMeses(d).stream()
-                .map(mes -> new ReceitaDespesas(mesAbreviado(mes.atDay(1)), numero(d.recebidoNoMes(mes)), null))
+                .map(mes -> new ReceitaDespesas(mesAbreviado(mes.atDay(1)), numero(d.recebidoNoMes(mes)),
+                        despesas.isEmpty() ? null : numero(despesas.getOrDefault(mes, BigDecimal.ZERO))))
                 .toList();
     }
 

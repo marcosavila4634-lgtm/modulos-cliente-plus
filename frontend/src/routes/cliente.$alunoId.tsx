@@ -6,6 +6,7 @@ import {
   Dumbbell,
   FlaskConical,
   Gift,
+  Network,
   Repeat,
   TriangleAlert,
   UserRound,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { AbaAulasAluno } from "../components/academia/AbaAulasAluno";
+import { AbaBeneficiosAluno } from "../components/academia/AbaBeneficiosAluno";
+import { apiFinanceiro } from "../lib/academia-financeiro";
 import { MiniaturaExercicio, VideoExercicio } from "../components/academia/MidiaExercicio";
 import { apiAgenda } from "../lib/academia-agenda";
 import { fmt } from "../lib/academia-alunos";
@@ -22,24 +25,25 @@ import { apiTreinos, descanso, seriesERepeticoes, type ItemFicha } from "../lib/
 // SIMULAÇÃO da área do cliente do Cliente Plus (projeto principal), aba
 // "Meu treino". No Cliente Plus o aluno entra logado; aqui ele é escolhido
 // pelo endereço /cliente/<id do aluno>.
-type Aba = "treino" | "aulas" | "indicacoes" | "carteira";
+type Aba = "treino" | "aulas" | "beneficios" | "indicacoes" | "carteira";
 
 export const Route = createFileRoute("/cliente/$alunoId")({
   validateSearch: (s: Record<string, unknown>): { aba?: Aba } => ({
-    aba: s.aba === "aulas" ? "aulas" : undefined,
+    aba: s.aba === "aulas" || s.aba === "beneficios" ? s.aba : undefined,
   }),
   loader: async ({ params }) => {
-    const [treino, aulas] = await Promise.all([
+    const [treino, aulas, beneficios] = await Promise.all([
       apiTreinos.treinoDoAluno(params.alunoId),
       apiAgenda.aulasDoAluno(params.alunoId),
+      apiFinanceiro.beneficiosDoAluno(params.alunoId),
     ]);
-    return { ...treino, aulas };
+    return { ...treino, aulas, beneficios };
   },
   component: AreaDoCliente,
 });
 
 function AreaDoCliente() {
-  const { academia, aluno, ficha, aulas } = Route.useLoaderData();
+  const { academia, aluno, ficha, aulas, beneficios } = Route.useLoaderData();
   const { alunoId } = Route.useParams();
   const [aba, setAba] = useState<Aba>(Route.useSearch().aba ?? "treino");
   const [treino, setTreino] = useState(0);
@@ -124,6 +128,8 @@ function AreaDoCliente() {
               </>
             )}
           </main>
+        ) : aba === "beneficios" ? (
+          <AbaBeneficiosAluno alunoId={alunoId} dados={beneficios} />
         ) : aba === "aulas" ? (
           <AbaAulasAluno alunoId={alunoId} aulas={aulas} />
         ) : (
@@ -137,12 +143,13 @@ function AreaDoCliente() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-4">
+        <div className="mx-auto grid max-w-md grid-cols-5">
           {(
             [
               ["treino", "Meu treino", Dumbbell],
               ["aulas", "Aulas", CalendarDays],
-              ["indicacoes", "Indicações", Gift],
+              ["beneficios", "Benefícios", Gift],
+              ["indicacoes", "Indicações", Network],
               ["carteira", "Carteira", Wallet],
             ] as const
           ).map(([valor, rotulo, Icone]) => (

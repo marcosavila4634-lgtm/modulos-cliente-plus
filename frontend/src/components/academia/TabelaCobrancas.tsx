@@ -26,7 +26,7 @@ export function TabelaCobrancas({
         <thead>
           <tr className="border-b border-ac-line text-[11.5px] tracking-wide text-ac-muted uppercase">
             {mostrarAluno && <th className="py-2.5 pr-3 pl-5 font-medium">Aluno</th>}
-            <th className={`py-2.5 pr-3 font-medium ${mostrarAluno ? "" : "pl-5"}`}>Plano</th>
+            <th className={`py-2.5 pr-3 font-medium ${mostrarAluno ? "" : "pl-5"}`}>Plano / serviço</th>
             <th className="py-2.5 pr-3 font-medium">Vencimento</th>
             <th className="py-2.5 pr-3 font-medium">Valor</th>
             <th className="py-2.5 pr-3 font-medium">Situação</th>
