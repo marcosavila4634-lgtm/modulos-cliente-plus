@@ -1,4 +1,6 @@
 import {
+  BookOpen,
+  Bot,
   ChartColumn,
   CircleDollarSign,
   Clapperboard,
@@ -8,6 +10,7 @@ import {
   Megaphone,
   Send,
   Settings,
+  ShieldCheck,
   Tags,
   Users,
   Workflow,
@@ -25,7 +28,10 @@ export type ItemMenu = {
 export const menuGrupoVip: ItemMenu[] = [
   { secao: null, rotulo: "Dashboard", icone: LayoutDashboard },
   { secao: "membros", rotulo: "Membros", icone: Users },
-  { secao: "grupos", rotulo: "Grupos", icone: Send },
+  { secao: "grupos", rotulo: "Grupos e planos", icone: Send },
+  { secao: "acessos", rotulo: "Controle de acesso", icone: ShieldCheck },
+  { secao: "telegram", rotulo: "Telegram", icone: Bot },
+  { secao: "biblioteca", rotulo: "Biblioteca", icone: BookOpen },
   { secao: "conteudos", rotulo: "Conteúdos", icone: FileText },
   { secao: "categorias", rotulo: "Categorias", icone: Tags },
   { secao: "lives-e-eventos", rotulo: "Lives e Eventos", icone: Clapperboard },
@@ -38,7 +44,7 @@ export const menuGrupoVip: ItemMenu[] = [
     filhos: [
       { secao: "receitas", rotulo: "Receitas" },
       { secao: "assinaturas", rotulo: "Assinaturas" },
-      { secao: "saques", rotulo: "Saques" },
+      { secao: "saques", rotulo: "Saques e indicações" },
     ],
   },
   { secao: "relatorios", rotulo: "Relatórios", icone: ChartColumn },

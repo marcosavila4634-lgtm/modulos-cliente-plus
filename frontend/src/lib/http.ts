@@ -19,4 +19,5 @@ export const http = {
   get: <T>(caminho: string) => requisicao<T>("GET", caminho),
   post: <T>(caminho: string, corpo: unknown = {}) => requisicao<T>("POST", caminho, corpo),
   put: <T>(caminho: string, corpo: unknown) => requisicao<T>("PUT", caminho, corpo),
+  del: <T>(caminho: string) => requisicao<T>("DELETE", caminho),
 };

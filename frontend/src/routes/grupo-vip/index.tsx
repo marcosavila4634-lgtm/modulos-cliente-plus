@@ -15,6 +15,7 @@ import {
   EstaSemana,
   IndicadoresGrupoVip,
   MeusGrupos,
+  Pendencias,
   ProximosEventos,
 } from "../../components/grupo-vip/Topo";
 
@@ -33,6 +34,7 @@ function Dashboard() {
         <div className="flex flex-col gap-3.5 [&>*]:min-w-0">
           <BoasVindas nome={d.gestor.nome} frase={d.frase} />
           <IndicadoresGrupoVip dados={d.indicadores} />
+          <Pendencias p={d.pendencias} robo={d.roboConectado} />
           <AtalhosGrupoVip />
           <div className="grid gap-3.5 lg:grid-cols-[1.75fr_1fr] [&>*]:min-w-0">
             <MembrosRecentes membros={d.membrosRecentes} />
@@ -50,7 +52,7 @@ function Dashboard() {
           <CardFrase frase={d.fraseDestaque} />
           <MeusGrupos grupos={d.grupos} />
           <ProximosEventos eventos={d.proximosEventos} />
-          <CardConvite />
+          <CardConvite paginaVendas={d.paginaVendas} />
         </div>
       </div>
 

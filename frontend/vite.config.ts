@@ -12,6 +12,8 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    // Aceita acesso de outros aparelhos da rede (ex.: celular no mesmo Wi-Fi).
+    host: true,
     // Tudo que começa com /api vai para o backend.
     proxy: { "/api": "http://localhost:3001" },
   },

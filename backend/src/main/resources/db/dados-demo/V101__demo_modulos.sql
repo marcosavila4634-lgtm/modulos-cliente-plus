@@ -13,5 +13,5 @@ insert into modulos (slug, nome, segmento, descricao, status, created_at) values
    'Alunos, turmas, mensalidades e controle de inadimplência.',
    'planejado', timestamp with time zone '2026-09-01 12:00:03+00'),
   ('grupo-vip', 'Gestão de Grupos VIP', 'Grupos VIP (Telegram e WhatsApp)',
-   'Para quem vende acesso a grupos pagos no Telegram e no WhatsApp: membros, planos, conteúdos, lives, avisos e receita.',
-   'em_desenvolvimento', timestamp with time zone '2026-09-20 12:00:00+00');
+   'Para quem vende acesso a grupos pagos no Telegram e no WhatsApp: página de vendas com Pix, controle de acesso automático (robô do Telegram), mensagens automáticas, conteúdos, lives, anúncios, financeiro, indicações e área do membro.',
+   'pronto_para_migrar', timestamp with time zone '2026-09-20 12:00:00+00');

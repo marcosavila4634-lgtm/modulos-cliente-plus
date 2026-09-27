@@ -106,8 +106,8 @@ scripts/mvnw.mjs     chama backend/mvnw(.cmd) a partir dos scripts npm
   `CamelCaseToUnderscoresNamingStrategy` mapeia para snake_case.
 - Loja de exemplo de cada módulo em `academia.store-id` / `grupo-vip.store-id`
   (application.properties) até existir login.
-- Dashboard da Academia é calculado dos dados (ver seção do módulo). O de
-  Grupos VIP ainda lê tabelas de resumo com os números do print.
+- Os Dashboards da Academia e dos Grupos VIP são calculados dos dados (ver
+  a seção de cada módulo).
 - Cuidado com processos antigos: um Vite/Quarkus esquecido na porta 5173/3001
   faz o novo subir em outra porta (5174) e o navegador mostra código velho.
 - Ver/consultar o banco: http://localhost:3001/q/dev-ui → Agroal → Database
@@ -242,14 +242,124 @@ perguntar; as decisões tomadas estão abaixo e podem ser revistas por ele).
 - No terminal (Bash), evitar `node -e "..."` com crases de template string:
   o Bash as executa. Para edições grandes, escrever um script `.mjs`.
 
-## Módulo Grupos VIP ("Gestão Plus Grupos VIP") — em desenvolvimento
+## Módulo Grupos VIP ("Gestão Plus Grupos VIP") — pronto para migrar
 
-- Para quem vende acesso a grupos pagos no **Telegram e no WhatsApp**
-  (cada grupo tem `plataforma: "telegram" | "whatsapp"`).
-- Mesmo padrão da academia: layout em `frontend/src/routes/grupo-vip.tsx`,
-  componentes em `frontend/src/components/grupo-vip/`, cores `gv-*` (laranja
-  sobre azul-marinho), tabelas `grupo_vip_*` (exemplo em `V103__demo_grupo_vip.sql`) servidas
-  por `GET /api/grupo-vip/dashboard`, tipos em `frontend/src/lib/grupo-vip.ts`.
-- Menu com submenu Financeiro (Receitas, Assinaturas, Saques). Demais itens
-  abrem `/grupo-vip/<secao>` com "Tela em construção".
+Para quem vende acesso a grupos pagos no **Telegram e no WhatsApp**. Feito
+inteiro de uma vez a pedido do usuário ("todas as etapas, sem perguntar"); as
+decisões abaixo podem ser revistas por ele.
+
+- Painel em `/grupo-vip` (layout `frontend/src/routes/grupo-vip.tsx`, telas em
+  `frontend/src/routes/grupo-vip/`, componentes em
+  `frontend/src/components/grupo-vip/`, cores `gv-*` laranja sobre
+  azul-marinho). Backend em `grupovip/`; entidades com
+  `@Entity(name = "GrupoVip...")` porque a academia já tem uma entidade
+  `Acesso` (nomes de entidade não podem se repetir no Hibernate).
+- Tabelas em `db/migration/V3__grupo_vip.sql`; FKs para o Cliente Plus e a
+  imitação de saques (`cp_saques`) em `cliente-plus-simulado/V19`; exemplo em
+  `dados-demo/V111__demo_grupo_vip.sql` (fica DEPOIS da academia porque
+  V104–V110 procuram clientes pelo nome sem olhar a loja).
+- Contratos: `MembrosContrato`, `AcessosContrato`, `ConteudosContrato`,
+  `FinanceiroContrato`, `PublicoContrato` (+ records dentro de
+  `GruposResource`, `AutomacaoResource`, `ConfiguracoesResource`,
+  `Relatorios`, `Suporte`) ↔ `frontend/src/lib/grupo-vip*.ts`.
+- **Membro = cliente; plano/assinatura/mensalidade = Cliente Plus**
+  (pagamentos com `origem='grupo-vip'`). Planos podem ser criados no módulo
+  (para funcionar sozinho); `grupo_vip_plano_grupos` diz quais grupos cada
+  plano libera. Uma assinatura ativa por membro.
+- **Situação** (`Membros.java`, calculada): aguardando_pagamento, em_dia,
+  vencendo (≤3 dias), atrasado (≤ tolerância, continua com acesso), bloqueado
+  (atraso > tolerância ou bloqueio manual), cancelando (cancelou, acesso até o
+  fim do período pago), sem_plano. Tolerância em Configurações (demo 3 dias).
+- **Controle de acesso** (`ControleAcesso.java`): compara quem tem direito com
+  `grupo_vip_acessos` (convidado/no_grupo/removido) → pendências adicionar /
+  aguardando / remover. Grupo **automático** = Telegram + robô conectado +
+  `telegram_chat_id`: o robô cria um link exclusivo por membro
+  (`creates_join_request`), aprova só quem tem direito, tira quem perdeu (ban +
+  unban). Demais grupos (WhatsApp, decisão: sem API não oficial para não
+  arriscar banimento) são **assistidos**: a tela mostra a lista e o dono marca
+  "Já adicionei / Já tirei". Histórico em `grupo_vip_acesso_eventos`.
+- **Robô do Telegram** (`Telegram.java` HTTP da Bot API, `RoboTelegram.java`
+  consulta `getUpdates` a cada 3 s): `/start <codigo>` liga o Telegram ao
+  membro e manda os links; `/id` no grupo responde o ID; detecta grupos onde
+  foi adicionado. Token guardado só no servidor. No Supabase: Edge Function
+  com webhook e o token como segredo.
+- **Automações** (`Automacoes.java`, `@Scheduled` a cada 60 s + botão "Rodar
+  agora"): sincroniza acessos, gera mensagens (boas_vindas, lembrete, vencido,
+  remocao, reconquista, aniversario, live — textos editáveis com variáveis
+  `{nome}`, `{link_area}`...), publica conteúdos agendados, avisa lives e envia
+  as pendentes do Telegram. **Caixa de saída** `grupo_vip_mensagens` (chave
+  única evita repetir): Telegram envia sozinho; WhatsApp fica pendente e o
+  dono toca "Enviar" (abre wa.me com o texto). Links nas mensagens usam
+  `EnderecoPublico` (IP do computador na rede; `grupo-vip.url-publica`).
+- **Página de vendas** `/g/<slug>` (`?ref=<codigo>` = indicação) e checkout
+  (cupom na 1ª mensalidade, `grupo_vip_checkouts`). **Pix**: `Pix.java` gera o
+  BR Code "copia e cola" estático (valor + txid, CRC conferido) e a tela faz o
+  QR (lib `qrcode`). Confirmação: dono em "Receber", ou no laboratório o botão
+  "Simular pagamento confirmado" da área do membro. No projeto principal:
+  gateway do Cliente Plus (webhook).
+- **Área do membro** `/membro/<codigo>` (simula a área do cliente do Cliente
+  Plus): grupos e links, pagamentos com Pix, biblioteca de conteúdos (cada
+  abertura grava `grupo_vip_conteudo_views` = "visualizações" do Dashboard),
+  lives, indique e ganhe (saldo, saque) e suporte.
+- **Controle do Telegram** (tela `/grupo-vip/telegram`, `GestaoTelegram.java`,
+  `Enquetes.java`, `TelegramResource`/`TelegramContrato` ↔
+  `lib/grupo-vip-telegram.ts`; colunas novas em `grupo_vip_grupos` e tabelas
+  `grupo_vip_telegram_topicos`, `grupo_vip_enquetes`,
+  `grupo_vip_enquete_envios`, `grupo_vip_moderacao` no V3). Por grupo: proteger
+  conteúdo (`protect_content` em posts, lives e enquetes do robô), moderação
+  (apaga links e palavras proibidas de quem não é admin; admins em cache de 10
+  min; pode silenciar N minutos; histórico em "Mensagens apagadas"),
+  boas-vindas no grupo (`{nome}` marca a pessoa), apagar avisos de
+  entrada/saída, travar/liberar na hora ou por horário (`aplicarHorarios` roda
+  nas Automações e só age na virada), nome/foto/descrição e tópicos (criados no
+  painel ou detectados pelo robô). Enquetes/quiz: votos chegam pelo update
+  `poll`. Suporte pelo Telegram: texto no privado do robô vira conversa no
+  Suporte (`chamados.origem='telegram'`), `/grupos` reenvia os links.
+  Mensagens do privado têm botão conforme o tipo (`Mensageiro.botoes`); se o
+  Telegram recusar o link do botão (endereço local), reenvia sem botão.
+  NÃO testado com um robô real no laboratório (sem token): testar ao conectar.
+- **Biblioteca** (tela `/grupo-vip/biblioteca`, `Biblioteca.java`,
+  `EnvioEmMassa.java`, `GoogleDrive.java`, `BibliotecaResource`/
+  `BibliotecaContrato` ↔ `lib/grupo-vip-biblioteca.ts`; tabelas
+  `grupo_vip_livros`, `grupo_vip_importacoes`, `grupo_vip_importacao_itens`,
+  `grupo_vip_livro_pedidos` no V3; `grupo_vip_config.google_api_key`).
+  Envio em massa de uma pasta PÚBLICA do Google Drive (Drive API v3 com chave
+  de API, subpastas incluídas) ou de arquivos do computador (navegador manda
+  um por vez; guardados em `data/livros`, fora da pasta pública) para um grupo
+  do Telegram. `EnvioEmMassa` roda a cada 1 s: lê a pasta e posta 1 arquivo a
+  cada 3 s por grupo (respeita `retry_after` do Telegram); baixar/subir fica
+  FORA das transações. Sem repetir: md5 por grupo. Limite 50 MB por arquivo
+  (API de robôs). Opção "só no robô" não posta no grupo. Robô bibliotecário:
+  `/livro <nome>` no privado, lista com botões (`callback_query`), só para
+  quem tem acesso ao grupo do livro, 30 por dia; o `file_id` do Telegram é
+  guardado no 1º envio. `grupo-vip.telegram-api` e `grupo-vip.google-drive-api`
+  trocam os endereços das APIs (testado no laboratório com um Telegram/Drive de
+  mentira; com o servidor próprio `telegram-bot-api` o limite sobe para 2 GB).
+  CONFIRMAR com Drive e robô reais.
+  - **Cópia entre grupos** (origem `telegram`, para quando um grupo lota):
+    livros que o robô já postou no grupo de origem vão pelo `file_id`; o resto
+    o robô descobre lendo as mensagens do grupo de origem (da 1ª até a do link
+    "última mensagem"), 1 por segundo: `forwardMessage` para o privado do
+    DONO (`config.telegram_dono_id`, ligado por `/start dono_<codigo>`),
+    apaga na hora e, se for documento (ou foto/vídeo/áudio com
+    `copiar_midias`), põe na fila; a cópia usa `copyMessage`. Livros copiados
+    entram na biblioteca dos dois grupos (`md5 = "tg:<file_unique_id>"`).
+    Conteúdo protegido não pode ser encaminhado (conta em `protegidas`; o
+    dono desliga "Restringir conteúdo salvo"). Robô não copia grupos em que
+    não é administrador (grupos de terceiros: não fazer).
+- Conteúdos (`Conteudos.java`): publicar agora/agendar/rascunho em grupos
+  escolhidos; WhatsApp fica "manual" até o dono marcar "Já postei". No
+  Telegram: botão com link (`botao_texto`), fixar, tópico por grupo; o id do
+  post fica em `conteudo_grupos.telegram_message_id` para fixar/desafixar,
+  apagar do grupo e atualizar o texto ao editar.
+  Categorias, Lives (aviso X min antes) e Anúncios (públicos: todos, em_dia,
+  atrasados, sem_acesso, plano, grupo, novos; opção postar nos grupos).
+- Financeiro: Receitas (mês, por dia/plano/forma), Assinaturas (receita
+  recorrente mensal, previsão 30 dias), Saques e indicações (SIMULAÇÃO do
+  motor do Cliente Plus em `Indicacoes.java`, 10/5/2%; saques em `cp_saques`).
+  Relatórios com CSV. Suporte: conversas membro ↔ equipe
+  (`grupo_vip_chamados`), resposta também vai pela caixa de saída.
+- CONFIRMAR na migração: como o Cliente Plus guarda planos/pagamentos e
+  saques reais; gateway de pagamento no lugar do Pix estático; login da
+  área do membro (hoje o código do link identifica a pessoa).
 - Fotos em `frontend/public/grupo-vip/` (Unsplash).

@@ -5,6 +5,8 @@ import { TopbarGrupoVip } from "../components/grupo-vip/TopbarGrupoVip";
 import { buscarDashboard } from "../lib/grupo-vip";
 
 // Layout do módulo Grupos VIP (Telegram e WhatsApp): menu lateral + barra do topo.
+// O loader traz o Dashboard (também usado pelos avisos do sininho); cada tela
+// chama router.invalidate() depois de uma alteração para tudo se atualizar.
 export const Route = createFileRoute("/grupo-vip")({
   loader: buscarDashboard,
   component: LayoutGrupoVip,
@@ -20,11 +22,11 @@ function LayoutGrupoVip() {
     else setAberta((v) => !v);
   };
 
-  const iniciais = `${d.gestor.nome[0]}${d.gestor.sobrenome[0]}`.toUpperCase();
+  const iniciais = `${d.gestor.nome[0] ?? ""}${d.gestor.sobrenome[0] ?? ""}`.toUpperCase();
 
   return (
     <div className="flex h-full bg-gv-bg text-slate-100">
-      <div className="hidden h-full lg:block">
+      <div className="hidden h-full lg:block print:hidden">
         <SidebarGrupoVip gestor={d.gestor} recolhida={recolhida} />
       </div>
 
@@ -39,12 +41,13 @@ function LayoutGrupoVip() {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <TopbarGrupoVip
-          grupoAtual={d.grupoAtual.nome}
+          nomeNegocio={d.grupoAtual.nome}
           iniciais={iniciais}
-          notificacoes={d.notificacoes}
+          alertas={d.alertas}
+          paginaVendas={d.paginaVendas}
           aoAlternarMenu={alternarMenu}
         />
-        <main className="flex-1 px-4 pt-1 pb-5 md:px-6">
+        <main className="flex-1 px-4 pt-1 pb-8 md:px-6 print:px-0">
           <Outlet />
         </main>
       </div>

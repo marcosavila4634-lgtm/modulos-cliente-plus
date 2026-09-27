@@ -1,21 +1,29 @@
+import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
+  Bot,
   CalendarDays,
   ChartColumnIncreasing,
   Clapperboard,
+  Clock,
   Eye,
   FileText,
   Gem,
+  Headset,
   Megaphone,
+  MessageCircle,
   Send,
+  ShieldCheck,
+  UserMinus,
   UserPlus,
   Users,
   Video,
   type LucideIcon,
 } from "lucide-react";
-import { dataPorExtenso, formatar, type DashboardGrupoVip } from "../../lib/grupo-vip";
-import { AviaoPapel, IconePlataforma, nomePlataforma, TracoLaranja } from "./Marcas";
-import { BotaoLaranja, Card, LinkVerTodos, TituloCard, Variacao } from "./ui";
+import { dataPorExtenso, formatar, nomePlataforma, type DashboardGrupoVip } from "../../lib/grupo-vip";
+import { BotaoCopiar } from "./formulario";
+import { AviaoPapel, IconePlataforma, TracoLaranja } from "./Marcas";
+import { Card, classeBotaoLaranja, LinkVerTodos, TituloCard, Variacao } from "./ui";
 
 // ---------- Faixa de boas-vindas ----------
 
@@ -36,11 +44,11 @@ export function BoasVindas({ nome, frase }: { nome: string; frase: string }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-gv-line bg-[radial-gradient(ellipse_at_68%_40%,rgba(37,99,235,0.35),transparent_45%),linear-gradient(90deg,#070c17,#0a1426_60%,#08101f)] px-6 py-5">
       <div className="relative z-10 max-w-[440px]">
-        <h1 className="font-poppins text-[30px] leading-tight font-bold text-white">
+        <h1 className="font-poppins text-[28px] leading-tight font-bold text-white md:text-[30px]">
           Bem vindo, <span className="text-orange-500">{nome}!</span>
         </h1>
         <p className="mt-1 text-[15px] text-slate-200">Gestão de grupos VIP e conteúdos exclusivos.</p>
-        <p className="mt-4 max-w-[300px] text-[13.5px] leading-snug text-slate-300 italic">“{frase}”</p>
+        {frase && <p className="mt-4 max-w-[300px] text-[13.5px] leading-snug text-slate-300 italic">“{frase}”</p>}
         <TracoLaranja className="mt-1 ml-28 h-3 w-24" />
       </div>
       <div className="pointer-events-none absolute top-1/2 right-[26%] hidden -translate-y-1/2 md:block">
@@ -64,7 +72,7 @@ export function BoasVindas({ nome, frase }: { nome: string; frase: string }) {
 type Indicadores = DashboardGrupoVip["indicadores"];
 
 export function IndicadoresGrupoVip({ dados }: { dados: Indicadores }) {
-  const cards: { icone: LucideIcon; cor: string; rotulo: string; valor: string; variacao: number; anterior: string }[] = [
+  const cards: { icone: LucideIcon; cor: string; rotulo: string; valor: string; variacao: number; anterior: string; para: string }[] = [
     {
       icone: Users,
       cor: "from-blue-500 to-blue-700",
@@ -72,6 +80,7 @@ export function IndicadoresGrupoVip({ dados }: { dados: Indicadores }) {
       valor: formatar.numero(dados.membrosAtivos.valor),
       variacao: dados.membrosAtivos.variacao,
       anterior: formatar.numero(dados.membrosAtivos.mesAnterior),
+      para: "/grupo-vip/membros",
     },
     {
       icone: FileText,
@@ -80,6 +89,7 @@ export function IndicadoresGrupoVip({ dados }: { dados: Indicadores }) {
       valor: formatar.numero(dados.conteudosPublicados.valor),
       variacao: dados.conteudosPublicados.variacao,
       anterior: formatar.numero(dados.conteudosPublicados.mesAnterior),
+      para: "/grupo-vip/conteudos",
     },
     {
       icone: Eye,
@@ -88,6 +98,7 @@ export function IndicadoresGrupoVip({ dados }: { dados: Indicadores }) {
       valor: formatar.numero(dados.visualizacoes.valor),
       variacao: dados.visualizacoes.variacao,
       anterior: formatar.numero(dados.visualizacoes.mesAnterior),
+      para: "/grupo-vip/relatorios",
     },
     {
       icone: Gem,
@@ -96,55 +107,104 @@ export function IndicadoresGrupoVip({ dados }: { dados: Indicadores }) {
       valor: formatar.moeda(dados.receitaMes.valor),
       variacao: dados.receitaMes.variacao,
       anterior: formatar.moeda(dados.receitaMes.mesAnterior),
+      para: "/grupo-vip/receitas",
     },
   ];
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map(({ icone: Icone, ...c }) => (
-        <Card key={c.rotulo} className="flex items-center gap-3 !px-3.5">
-          <span
-            className={`grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-b ${c.cor} shadow-[0_6px_20px_-6px_rgba(0,0,0,0.8)]`}
-          >
-            <Icone className="size-[22px] text-white" />
-          </span>
-          <div className="min-w-0 leading-tight">
-            <div className="text-[11.5px] text-slate-300">{c.rotulo}</div>
-            <div className="mt-1 font-poppins text-[20px] font-bold whitespace-nowrap text-white">{c.valor}</div>
-            <div className="mt-1">
-              <Variacao valor={c.variacao} />
+        <Link key={c.rotulo} to={c.para} className="block rounded-2xl transition hover:-translate-y-0.5">
+          <Card className="flex h-full items-center gap-3 !px-3.5">
+            <span
+              className={`grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-b ${c.cor} shadow-[0_6px_20px_-6px_rgba(0,0,0,0.8)]`}
+            >
+              <Icone className="size-[22px] text-white" />
+            </span>
+            <div className="min-w-0 leading-tight">
+              <div className="text-[11.5px] text-slate-300">{c.rotulo}</div>
+              <div className="mt-1 font-poppins text-[20px] font-bold whitespace-nowrap text-white">{c.valor}</div>
+              <div className="mt-1">
+                <Variacao valor={c.variacao} />
+              </div>
+              <div className="mt-0.5 text-[10.5px] text-gv-muted">Mês anterior: {c.anterior}</div>
             </div>
-            <div className="mt-0.5 text-[10.5px] text-gv-muted">Mês anterior: {c.anterior}</div>
-          </div>
-        </Card>
+          </Card>
+        </Link>
       ))}
     </div>
   );
 }
 
+// ---------- Pendências (o que fazer hoje) ----------
+
+export function Pendencias({ p, robo }: { p: DashboardGrupoVip["pendencias"]; robo: boolean }) {
+  const itens: { icone: LucideIcon; cor: string; rotulo: string; valor: number; para: string }[] = [
+    { icone: UserPlus, cor: "text-emerald-300", rotulo: "Colocar nos grupos", valor: p.adicionar, para: "/grupo-vip/acessos" },
+    { icone: UserMinus, cor: "text-red-300", rotulo: "Tirar dos grupos", valor: p.remover, para: "/grupo-vip/acessos" },
+    { icone: Clock, cor: "text-sky-300", rotulo: "Link enviado, falta entrar", valor: p.aguardando, para: "/grupo-vip/acessos" },
+    { icone: MessageCircle, cor: "text-green-300", rotulo: "Mensagens do WhatsApp", valor: p.mensagensWhatsapp, para: "/grupo-vip/automacao" },
+    { icone: Send, cor: "text-sky-300", rotulo: "Postar no WhatsApp", valor: p.publicacoesManuais, para: "/grupo-vip/conteudos" },
+    { icone: Headset, cor: "text-violet-300", rotulo: "Suporte esperando", valor: p.chamadosAbertos, para: "/grupo-vip/suporte" },
+  ];
+  return (
+    <Card>
+      <TituloCard
+        icone={ShieldCheck}
+        acao={
+          <span className={`hidden items-center gap-1.5 text-[11px] sm:inline-flex ${robo ? "text-emerald-300" : "text-gv-muted"}`}>
+            <Bot className="size-3.5" />
+            {robo ? "Robô do Telegram ligado" : "Robô do Telegram desligado"}
+          </span>
+        }
+      >
+        Pendências de hoje
+      </TituloCard>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        {itens.map(({ icone: Icone, ...i }) => (
+          <Link
+            key={i.rotulo}
+            to={i.para}
+            className={`rounded-xl border px-3 py-2.5 transition hover:border-orange-500/50 ${
+              i.valor > 0 ? "border-gv-line bg-gv-card-2/70" : "border-gv-line/60 bg-transparent opacity-70"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <Icone className={`size-4 ${i.cor}`} />
+              <span className="font-poppins text-lg font-bold text-white">{i.valor}</span>
+            </div>
+            <div className="mt-1 text-[11.5px] leading-tight text-slate-300">{i.rotulo}</div>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 // ---------- Atalhos ----------
 
-const atalhos: { rotulo: string; icone: LucideIcon }[] = [
-  { rotulo: "Novo Grupo", icone: Send },
-  { rotulo: "Novo Conteúdo", icone: FileText },
-  { rotulo: "Adicionar Membro", icone: UserPlus },
-  { rotulo: "Agendar Live", icone: Video },
-  { rotulo: "Enviar Aviso", icone: Megaphone },
-  { rotulo: "Relatório", icone: ChartColumnIncreasing },
+const atalhos: { rotulo: string; icone: LucideIcon; para: string; search?: Record<string, boolean> }[] = [
+  { rotulo: "Novo Grupo", icone: Send, para: "/grupo-vip/grupos", search: { novo: true } },
+  { rotulo: "Novo Conteúdo", icone: FileText, para: "/grupo-vip/conteudos", search: { novo: true } },
+  { rotulo: "Adicionar Membro", icone: UserPlus, para: "/grupo-vip/membros", search: { novo: true } },
+  { rotulo: "Agendar Live", icone: Video, para: "/grupo-vip/lives-e-eventos", search: { novo: true } },
+  { rotulo: "Enviar Aviso", icone: Megaphone, para: "/grupo-vip/anuncios" },
+  { rotulo: "Relatório", icone: ChartColumnIncreasing, para: "/grupo-vip/relatorios" },
 ];
 
 export function AtalhosGrupoVip() {
   return (
     <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
-      {atalhos.map(({ rotulo, icone: Icone }) => (
-        <button
+      {atalhos.map(({ rotulo, icone: Icone, para, search }) => (
+        <Link
           key={rotulo}
-          type="button"
+          to={para}
+          search={search}
           className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-gv-line bg-gradient-to-b from-gv-card-2/70 to-gv-card px-2 py-3.5 text-center transition-colors hover:border-orange-500/50 hover:bg-gv-card-2"
         >
           <Icone className="size-7 text-sky-400" strokeWidth={1.75} />
           <span className="text-[12px] leading-tight text-slate-200">{rotulo}</span>
-        </button>
+        </Link>
       ))}
     </div>
   );
@@ -157,7 +217,7 @@ export function EstaSemana() {
     <Card className="flex items-center gap-3 !py-3.5">
       <CalendarDays className="size-6 shrink-0 text-slate-200" />
       <div className="leading-tight">
-        <div className="text-[11px] text-gv-muted">Esta semana •</div>
+        <div className="text-[11px] text-gv-muted">Hoje •</div>
         <div className="mt-0.5 text-[13px] font-medium text-white">{dataPorExtenso()}</div>
       </div>
     </Card>
@@ -169,14 +229,14 @@ export function CardFrase({ frase }: { frase: string }) {
     <Card className="relative overflow-hidden">
       <AviaoPapel className="absolute top-4 right-3 size-14 drop-shadow-[0_0_14px_rgba(56,189,248,0.5)]" />
       <p className="max-w-[170px] text-[14px] leading-snug text-slate-100">“{frase}”</p>
-      <BotaoLaranja className="mt-4">
+      <Link to="/grupo-vip/anuncios" className={`${classeBotaoLaranja} mt-4`}>
         Enviar mensagem <ArrowRight className="size-3.5" />
-      </BotaoLaranja>
+      </Link>
     </Card>
   );
 }
 
-const corGrupo: Record<DashboardGrupoVip["grupos"][number]["cor"], string> = {
+export const corGrupo: Record<DashboardGrupoVip["grupos"][number]["cor"], string> = {
   blue: "from-sky-400 to-blue-600",
   sky: "from-cyan-400 to-sky-600",
   violet: "from-fuchsia-400 to-violet-600",
@@ -187,12 +247,13 @@ const corGrupo: Record<DashboardGrupoVip["grupos"][number]["cor"], string> = {
 export function MeusGrupos({ grupos }: { grupos: DashboardGrupoVip["grupos"] }) {
   return (
     <Card>
-      <TituloCard icone={Send} cor="text-white" acao={<LinkVerTodos />}>
+      <TituloCard icone={Send} cor="text-white" acao={<LinkVerTodos para="/grupo-vip/grupos" />}>
         Meus grupos
       </TituloCard>
+      {grupos.length === 0 && <p className="mt-3 text-sm text-gv-muted">Nenhum grupo cadastrado.</p>}
       <ul className="mt-3.5 flex flex-col gap-3">
         {grupos.map((g) => (
-          <li key={g.nome} className="flex items-center gap-3">
+          <li key={g.id} className="flex items-center gap-3">
             <span className="relative shrink-0">
               <span className={`grid size-9 place-items-center rounded-full bg-gradient-to-b ${corGrupo[g.cor]}`}>
                 <Users className="size-4 text-white" />
@@ -209,10 +270,12 @@ export function MeusGrupos({ grupos }: { grupos: DashboardGrupoVip["grupos"] }) 
             <div className="min-w-0 flex-1 leading-tight">
               <div className="truncate text-[13px] font-medium text-white">{g.nome}</div>
               <div className="text-[11px] text-gv-muted">
-                {g.membros} membros · {nomePlataforma[g.plataforma]}
+                {g.membros} no grupo · {g.automatico ? "robô" : nomePlataforma[g.plataforma]}
               </div>
             </div>
-            <BotaoLaranja className="!px-3 !py-1.5">Acessar</BotaoLaranja>
+            <Link to="/grupo-vip/acessos" className={`${classeBotaoLaranja} !px-3 !py-1.5`}>
+              Acessos
+            </Link>
           </li>
         ))}
       </ul>
@@ -223,19 +286,26 @@ export function MeusGrupos({ grupos }: { grupos: DashboardGrupoVip["grupos"] }) 
 export function ProximosEventos({ eventos }: { eventos: DashboardGrupoVip["proximosEventos"] }) {
   return (
     <Card>
-      <TituloCard icone={Clapperboard} cor="text-orange-400" acao={<LinkVerTodos />}>
+      <TituloCard icone={Clapperboard} cor="text-orange-400" acao={<LinkVerTodos para="/grupo-vip/lives-e-eventos" />}>
         Próximas lives / eventos
       </TituloCard>
+      {eventos.length === 0 && <p className="mt-3 text-sm text-gv-muted">Nenhuma live agendada.</p>}
       <ul className="mt-3.5 flex flex-col gap-3">
         {eventos.map((e) => (
-          <li key={e.titulo} className="flex items-center gap-3">
-            <img src={`/grupo-vip/${e.foto}.jpg`} alt="" className="size-9 shrink-0 rounded-lg object-cover" />
+          <li key={e.id} className="flex items-center gap-3">
+            {e.foto ? (
+              <img src={e.foto} alt="" className="size-9 shrink-0 rounded-lg object-cover" />
+            ) : (
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-gv-card-2">
+                <Video className="size-4 text-orange-300" />
+              </span>
+            )}
             <div className="min-w-0 flex-1 leading-tight">
               <div className="truncate text-[13px] font-medium text-white">{e.titulo}</div>
               <div className="text-[11px] text-gv-muted">{e.quando}</div>
             </div>
             {e.status === "ao_vivo" ? (
-              <span className="rounded-md bg-blue-600 px-2 py-1 text-[10.5px] font-semibold text-white">Ao vivo</span>
+              <span className="rounded-md bg-red-600 px-2 py-1 text-[10.5px] font-semibold text-white">Ao vivo</span>
             ) : (
               <span className="rounded-md border border-gv-line bg-gv-card-2 px-2 py-1 text-[10.5px] text-slate-300">
                 Em breve
@@ -248,7 +318,7 @@ export function ProximosEventos({ eventos }: { eventos: DashboardGrupoVip["proxi
   );
 }
 
-export function CardConvite() {
+export function CardConvite({ paginaVendas }: { paginaVendas: string }) {
   return (
     <div className="relative min-h-[150px] overflow-hidden rounded-2xl border border-gv-line">
       <img src="/grupo-vip/comunidade.jpg" alt="" className="absolute inset-0 size-full object-cover" />
@@ -262,9 +332,13 @@ export function CardConvite() {
           <br />
           que vai além.
         </p>
-        <BotaoLaranja className="mt-3">
-          Convidar membros <ArrowRight className="size-3.5" />
-        </BotaoLaranja>
+        <p className="mt-2 text-[11px] text-slate-300">Divulgue sua página de vendas:</p>
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          <BotaoCopiar texto={paginaVendas} rotulo="Copiar link" variante="primario" />
+          <a href={paginaVendas} target="_blank" rel="noreferrer" className={`${classeBotaoLaranja} !bg-none !bg-white/10 !text-white`}>
+            Abrir <ArrowRight className="size-3.5" />
+          </a>
+        </div>
       </div>
     </div>
   );

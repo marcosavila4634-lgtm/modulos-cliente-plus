@@ -56,6 +56,11 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-hibernate-orm-panache</artifactId>
     </dependency>
+    <!-- Tarefas automáticas de tempo em tempo (ex.: automações dos Grupos VIP) -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-scheduler</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

@@ -126,8 +126,9 @@ export function SidebarGrupoVip({ gestor, recolhida, aoNavegar }: Props) {
           )}
         </Link>
 
-        <button
-          type="button"
+        <Link
+          to="/grupo-vip/configuracoes"
+          onClick={aoNavegar}
           className={`mt-3 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5 ${
             recolhida ? "justify-center px-0" : ""
           }`}
@@ -139,10 +140,10 @@ export function SidebarGrupoVip({ gestor, recolhida, aoNavegar }: Props) {
                 <div className="text-[13.5px] font-semibold text-white">{gestor.nome}</div>
                 <div className="text-[11px] text-gv-muted">{gestor.cargo}</div>
               </div>
-              <ChevronDown className="size-4 text-gv-muted" />
+              <ChevronDown className="size-4 -rotate-90 text-gv-muted" />
             </>
           )}
-        </button>
+        </Link>
 
         {!recolhida && (
           <div className="relative mt-4 mb-2 -rotate-[8deg] px-3 font-script [@media(max-height:900px)]:hidden text-[26px] leading-[0.95] text-slate-100">

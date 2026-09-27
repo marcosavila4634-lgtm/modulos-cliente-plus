@@ -2,14 +2,13 @@ package br.com.clienteplus.modulos.grupovip;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import java.util.UUID;
 
-// Formato da resposta de GET /api/grupo-vip/dashboard.
+// Formato da resposta de GET /api/grupo-vip/dashboard. Tudo calculado dos dados.
 // Contrato com o frontend: frontend/src/lib/grupo-vip.ts (tipo DashboardGrupoVip).
 public record DashboardGrupoVip(
-        boolean demo,
         GrupoAtual grupoAtual,
         Gestor gestor,
-        int notificacoes,
         String frase,
         String fraseDestaque,
         Indicadores indicadores,
@@ -19,12 +18,17 @@ public record DashboardGrupoVip(
         List<PlanoMembros> planosMembros,
         List<Aviso> avisos,
         List<Grupo> grupos,
-        List<Evento> proximosEventos) {
+        List<Evento> proximosEventos,
+        Pendencias pendencias,
+        List<Alerta> alertas,
+        boolean roboConectado,
+        String paginaVendas) {
 
     public record GrupoAtual(String nome) {}
 
     public record Gestor(String nome, String sobrenome, String cargo) {}
 
+    // membrosAtivos = com acesso hoje; visualizacoes = conteúdos abertos na área do membro
     public record Indicadores(
             ComMesAnterior membrosAtivos,
             ComMesAnterior conteudosPublicados,
@@ -35,23 +39,36 @@ public record DashboardGrupoVip(
 
     public record ComMesAnterior(Number valor, Number variacao, Number mesAnterior) {}
 
-    // plano: "Básico" | "VIP" | "Premium" | "Cortesia"; status: "ativo" | "pendente"
-    public record MembroRecente(String nome, String foto, String plano, String grupo, String data, String status) {}
+    // situacao: igual à lista de membros
+    public record MembroRecente(UUID id, String nome, String plano, String grupo, String data, String situacao) {}
 
-    // "data" é opcional: só aparece no JSON quando preenchida.
+    // "data" é opcional: só aparece no JSON no mês em andamento.
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CrescimentoMembros(String mes, int membros, String data) {}
 
     public record ConteudoAcessado(String titulo, int acessos) {}
 
-    public record PlanoMembros(String nome, int percentual) {}
+    public record PlanoMembros(String nome, int percentual, int quantidade) {}
 
-    // tipo: "conteudo" | "manutencao" | "live" | "material"; status: "enviado"
-    public record Aviso(String tipo, String titulo, String quando, String status) {}
+    // tipo: "conteudo" | "manutencao" | "live" | "material" | "promocao"
+    public record Aviso(String tipo, String titulo, String quando, int destinatarios) {}
 
     // plataforma: "telegram" | "whatsapp"; cor: "blue" | "sky" | "violet" | "indigo" | "amber"
-    public record Grupo(String nome, String plataforma, int membros, String cor) {}
+    public record Grupo(UUID id, String nome, String plataforma, int membros, String cor, boolean automatico) {}
 
-    // status: "ao_vivo" | "em_breve"
-    public record Evento(String titulo, String foto, String quando, String status) {}
+    // status: "ao_vivo" | "agendado"
+    public record Evento(UUID id, String titulo, String foto, String quando, String status) {}
+
+    public record Pendencias(
+            int adicionar,
+            int remover,
+            int aguardando,
+            int mensagensWhatsapp,
+            int publicacoesManuais,
+            int chamadosAbertos,
+            int saquesSolicitados,
+            int cobrancasAtrasadas) {}
+
+    // link: caminho da tela que resolve o alerta
+    public record Alerta(String chave, String titulo, String descricao, int quantidade, String link) {}
 }

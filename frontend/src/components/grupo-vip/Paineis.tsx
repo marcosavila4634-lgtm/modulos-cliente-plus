@@ -1,9 +1,10 @@
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Award,
   BookOpen,
   CalendarDays,
   ChartColumn,
-  Ellipsis,
+  ChevronRight,
   FileSpreadsheet,
   Gift,
   Layers,
@@ -11,6 +12,7 @@ import {
   Mail,
   PartyPopper,
   Rocket,
+  Tag,
   TriangleAlert,
   Users,
   Video,
@@ -32,24 +34,19 @@ import {
 } from "recharts";
 import { formatar, type DashboardGrupoVip } from "../../lib/grupo-vip";
 import { AviaoPapel } from "./Marcas";
+import { Avatar, SeloSituacao } from "./Selos";
 import { Card, LinkVerTodos, SeletorPeriodo, TituloCard } from "./ui";
 
 const eixo = { fill: "#8a93a6", fontSize: 11 };
 
 // ---------- Membros recentes ----------
 
-const estiloPlano: Record<DashboardGrupoVip["membrosRecentes"][number]["plano"], string> = {
-  Premium: "bg-amber-900/50 text-amber-200 border-amber-700/50",
-  VIP: "bg-slate-700/50 text-slate-200 border-slate-600/50",
-  Básico: "bg-slate-800/70 text-slate-300 border-slate-700/60",
-  Cortesia: "bg-sky-900/40 text-sky-200 border-sky-800/60",
-};
-
 export function MembrosRecentes({ membros }: { membros: DashboardGrupoVip["membrosRecentes"] }) {
+  const navigate = useNavigate();
   return (
     <Card>
-      <TituloCard icone={Users} acao={<LinkVerTodos seta />}>
-        Membros recentes
+      <TituloCard icone={Users} acao={<LinkVerTodos para="/grupo-vip/membros" seta />}>
+        Assinaturas recentes
       </TituloCard>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[480px] text-left text-[11.5px] [&_td]:pr-2.5 [&_th]:pr-2.5">
@@ -59,45 +56,35 @@ export function MembrosRecentes({ membros }: { membros: DashboardGrupoVip["membr
               <th className="font-medium">Plano</th>
               <th className="font-medium">Grupo</th>
               <th className="font-medium">Data</th>
-              <th className="font-medium">Status</th>
+              <th className="font-medium">Situação</th>
               <th />
             </tr>
           </thead>
           <tbody className="divide-y divide-gv-line/70">
             {membros.map((m) => (
-              <tr key={m.nome} className="text-slate-200">
+              <tr
+                key={m.id + m.data}
+                onClick={() => navigate({ to: "/grupo-vip/membros/$id", params: { id: m.id } })}
+                className="cursor-pointer text-slate-200 hover:bg-white/[0.03]"
+              >
                 <td className="py-[7px] whitespace-nowrap">
-                  <img
-                    src={`/grupo-vip/${m.foto}.jpg`}
-                    alt=""
-                    className="mr-2.5 inline-block size-6 rounded-full object-cover align-middle"
-                  />
-                  <span className="align-middle">{m.nome}</span>
+                  <span className="inline-flex items-center gap-2.5">
+                    <Avatar nome={m.nome} tamanho="sm" />
+                    {m.nome}
+                  </span>
                 </td>
                 <td>
-                  <span className={`rounded-md border px-2 py-0.5 text-[11px] ${estiloPlano[m.plano]}`}>{m.plano}</span>
+                  <span className="rounded-md border border-slate-600/50 bg-slate-700/40 px-2 py-0.5 text-[11px] whitespace-nowrap">
+                    {m.plano}
+                  </span>
                 </td>
-                <td>{m.grupo}</td>
+                <td className="whitespace-nowrap">{m.grupo}</td>
                 <td className="whitespace-nowrap">{formatar.data(m.data)}</td>
                 <td>
-                  {m.status === "ativo" ? (
-                    <span className="rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] text-emerald-300">
-                      Ativo
-                    </span>
-                  ) : (
-                    <span className="rounded-md bg-amber-400 px-2.5 py-0.5 text-[11px] font-medium text-slate-950">
-                      Pendente
-                    </span>
-                  )}
+                  <SeloSituacao situacao={m.situacao} />
                 </td>
                 <td className="!pr-0 text-right">
-                  <button
-                    type="button"
-                    aria-label={`Ações de ${m.nome}`}
-                    className="rounded-md border border-gv-line bg-gv-card-2 px-1.5 py-0.5 text-slate-300 hover:text-white"
-                  >
-                    <Ellipsis className="size-4" />
-                  </button>
+                  <ChevronRight className="ml-auto size-4 text-gv-muted" />
                 </td>
               </tr>
             ))}
@@ -121,10 +108,10 @@ function TooltipCrescimento({ active, payload }: { active?: boolean; payload?: r
   );
 }
 
-// Selo fixo acima da última barra (valor atual), como no layout original.
-function seloUltimaBarra(ultimo: { membros: number; data?: string; mes: string }, indiceUltimo: number) {
+// Selo fixo acima da última barra (valor atual).
+function seloUltimaBarra(ultimo: { membros: number; data?: string; mes: string } | undefined, indiceUltimo: number) {
   return function Selo(props: { x?: unknown; y?: unknown; width?: unknown; index?: number }) {
-    if (props.index !== indiceUltimo) return null;
+    if (!ultimo || props.index !== indiceUltimo) return null;
     const cx = Number(props.x) + Number(props.width) / 2;
     const topo = Number(props.y);
     const largura = 64;
@@ -136,7 +123,7 @@ function seloUltimaBarra(ultimo: { membros: number; data?: string; mes: string }
           {formatar.numero(ultimo.membros)}
         </text>
         <text x={x + largura / 2} y={topo - 13} textAnchor="middle" fill="#cbd5e1" fontSize={9.5}>
-          {ultimo.data ? formatar.data(ultimo.data) : ultimo.mes}
+          {ultimo.data ? formatar.data(ultimo.data).slice(0, 5) : ultimo.mes}
         </text>
         <circle cx={cx} cy={topo} r={3} fill="#fff" />
       </g>
@@ -170,14 +157,7 @@ export function CrescimentoMembros({
             </defs>
             <CartesianGrid vertical={false} stroke="#1a2338" />
             <XAxis dataKey="mes" tick={eixo} axisLine={false} tickLine={false} />
-            <YAxis
-              tick={eixo}
-              axisLine={false}
-              tickLine={false}
-              domain={[0, 2000]}
-              ticks={[0, 500, 1000, 1500, 2000]}
-              tickFormatter={formatar.curto}
-            />
+            <YAxis tick={eixo} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={formatar.curto} />
             <Tooltip
               content={(p) => <TooltipCrescimento active={p.active} payload={p.payload} />}
               cursor={{ fill: "rgba(255,255,255,0.03)" }}
@@ -209,12 +189,15 @@ export function CrescimentoMembros({
 const iconesConteudo: LucideIcon[] = [BookOpen, Rocket, FileSpreadsheet, Video, ListChecks];
 
 export function ConteudosMaisAcessados({ conteudos }: { conteudos: DashboardGrupoVip["conteudosMaisAcessados"] }) {
-  const maior = Math.max(...conteudos.map((c) => c.acessos));
+  const maior = Math.max(1, ...conteudos.map((c) => c.acessos));
   return (
     <Card>
-      <TituloCard icone={Award} acao={<LinkVerTodos />}>
+      <TituloCard icone={Award} acao={<LinkVerTodos para="/grupo-vip/conteudos" />}>
         Conteúdos mais acessados
       </TituloCard>
+      {conteudos.length === 0 && (
+        <p className="mt-3 text-sm text-gv-muted">Ainda ninguém abriu os conteúdos na área do membro.</p>
+      )}
       <ol className="mt-4 flex flex-col gap-3">
         {conteudos.map((c, i) => {
           const Icone = iconesConteudo[i % iconesConteudo.length];
@@ -224,7 +207,9 @@ export function ConteudosMaisAcessados({ conteudos }: { conteudos: DashboardGrup
                 {i + 1}
               </span>
               <Icone className="size-3.5 shrink-0 text-slate-400" />
-              <span className="w-[118px] shrink-0 truncate text-slate-200">{c.titulo}</span>
+              <span className="w-[118px] shrink-0 truncate text-slate-200" title={c.titulo}>
+                {c.titulo}
+              </span>
               <span className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
                 <span
                   className="block h-full rounded-full bg-gradient-to-r from-orange-600 to-amber-400"
@@ -242,19 +227,21 @@ export function ConteudosMaisAcessados({ conteudos }: { conteudos: DashboardGrup
 
 // ---------- Planos de membros ----------
 
-const coresPlanos = ["#3b82f6", "#a855f7", "#f97316", "#fbbf24"];
+export const coresPlanos = ["#3b82f6", "#a855f7", "#f97316", "#fbbf24", "#10b981", "#ec4899"];
 
 export function PlanosMembros({ planos, total }: { planos: DashboardGrupoVip["planosMembros"]; total: number }) {
   return (
     <Card>
-      <TituloCard icone={Layers}>Planos de membros</TituloCard>
+      <TituloCard icone={Layers} acao={<LinkVerTodos para="/grupo-vip/grupos" />}>
+        Planos dos membros
+      </TituloCard>
       <div className="mt-3 flex items-center gap-3">
         <div className="relative size-[118px] shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={planos}
-                dataKey="percentual"
+                data={planos.length ? planos : [{ nome: "—", quantidade: 1 }]}
+                dataKey="quantidade"
                 nameKey="nome"
                 innerRadius={38}
                 outerRadius={57}
@@ -264,8 +251,8 @@ export function PlanosMembros({ planos, total }: { planos: DashboardGrupoVip["pl
                 strokeWidth={2}
                 isAnimationActive={false}
               >
-                {planos.map((p, i) => (
-                  <Cell key={p.nome} fill={coresPlanos[i % coresPlanos.length]} />
+                {(planos.length ? planos : [{ nome: "—" }]).map((p, i) => (
+                  <Cell key={p.nome} fill={planos.length ? coresPlanos[i % coresPlanos.length] : "#1a2338"} />
                 ))}
               </Pie>
             </PieChart>
@@ -275,11 +262,11 @@ export function PlanosMembros({ planos, total }: { planos: DashboardGrupoVip["pl
             <span className="text-[10.5px] text-slate-300">Membros</span>
           </div>
         </div>
-        <ul className="flex flex-1 flex-col gap-2.5 text-[12px]">
+        <ul className="flex min-w-0 flex-1 flex-col gap-2.5 text-[12px]">
           {planos.map((p, i) => (
             <li key={p.nome} className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full" style={{ background: coresPlanos[i % coresPlanos.length] }} />
-              <span className="flex-1 text-slate-300">{p.nome}</span>
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: coresPlanos[i % coresPlanos.length] }} />
+              <span className="flex-1 truncate text-slate-300">{p.nome}</span>
               <span className="font-semibold text-white">{p.percentual}%</span>
             </li>
           ))}
@@ -296,26 +283,28 @@ const estiloAviso: Record<DashboardGrupoVip["avisos"][number]["tipo"], { icone: 
   manutencao: { icone: TriangleAlert, cor: "text-amber-400" },
   live: { icone: CalendarDays, cor: "text-red-400" },
   material: { icone: Gift, cor: "text-orange-400" },
+  promocao: { icone: Tag, cor: "text-emerald-400" },
 };
 
 export function UltimosAvisos({ avisos }: { avisos: DashboardGrupoVip["avisos"] }) {
   return (
     <Card>
-      <TituloCard icone={Mail} acao={<LinkVerTodos />}>
+      <TituloCard icone={Mail} acao={<LinkVerTodos para="/grupo-vip/anuncios" />}>
         Últimos avisos enviados
       </TituloCard>
+      {avisos.length === 0 && <p className="mt-3 text-sm text-gv-muted">Nenhum aviso enviado ainda.</p>}
       <ul className="mt-3 flex flex-col gap-3">
         {avisos.map((a) => {
           const { icone: Icone, cor } = estiloAviso[a.tipo];
           return (
-            <li key={a.titulo} className="flex items-center gap-3">
+            <li key={a.titulo + a.quando} className="flex items-center gap-3">
               <Icone className={`size-[18px] shrink-0 ${cor}`} />
               <div className="min-w-0 flex-1 leading-tight">
                 <div className="truncate text-[12.5px] text-white">{a.titulo}</div>
                 <div className="text-[10.5px] text-gv-muted">{a.quando}</div>
               </div>
-              <span className="rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2 py-0.5 text-[10.5px] text-emerald-300">
-                Enviado
+              <span className="rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2 py-0.5 text-[10.5px] whitespace-nowrap text-emerald-300">
+                {a.destinatarios} pessoas
               </span>
             </li>
           );
@@ -338,7 +327,9 @@ export function RodapeGrupoVip() {
         <span className="text-gv-line">|</span>
         <span>Conteúdo que gera oportunidades</span>
       </div>
-      <div>Conexão • Conteúdo • Evolução</div>
+      <Link to="/" className="hover:text-slate-200">
+        Conexão • Conteúdo • Evolução
+      </Link>
     </footer>
   );
 }
