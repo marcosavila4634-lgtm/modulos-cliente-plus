@@ -1,9 +1,9 @@
 -- Dados de exemplo (DEMO) de configurações, dispositivos e entradas (check-ins)
 -- da "Academia Prime". Só do laboratório: usa funções do H2.
 
-insert into academia_config (store_id, telefone, email, endereco, cnpj, capacidade) values
+insert into academia_config (store_id, telefone, email, endereco, cnpj, capacidade, whatsapp, slug) values
   ('11111111-1111-4111-8111-111111111111', '1133334444', 'contato@academiaprime.com',
-   'Av. Paulista, 1000 - Bela Vista, São Paulo - SP', '12345678000190', 12);
+   'Av. Paulista, 1000 - Bela Vista, São Paulo - SP', '12345678000190', 12, '11999990000', 'academia-prime');
 
 insert into academia_horarios (store_id, dia_semana, abre, fecha, fechado) values
   ('11111111-1111-4111-8111-111111111111', 1, time '06:00', time '23:00', false),

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useBlocker, useRouter } from "@tanstack/react-router";
-import { Building2, Check, Clock, Link2, SlidersHorizontal, UserRound } from "lucide-react";
+import { Building2, Check, Clock, Globe, Link2, SlidersHorizontal, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Botao, Campo, classeInput, MensagemErro, mensagemDe } from "../../components/academia/formulario";
 import { CabecalhoPagina, Card, TituloCard } from "../../components/academia/ui";
@@ -21,6 +21,7 @@ function PaginaConfiguracoes() {
   const formatar = (c: Configuracoes): Configuracoes => ({
     ...c,
     telefone: c.telefone ? fmt.telefone(c.telefone) : "",
+    whatsapp: c.whatsapp ? fmt.telefone(c.whatsapp) : "",
     cnpj: cnpj(c.cnpj),
     email: c.email ?? "",
     endereco: c.endereco ?? "",
@@ -99,6 +100,41 @@ function PaginaConfiguracoes() {
             <Campo rotulo="Endereço" className="sm:col-span-2">
               <input className={classeInput} value={c.endereco ?? ""} onChange={(e) => mudar("endereco", e.target.value)} />
             </Campo>
+          </div>
+        </Card>
+
+        <Card>
+          <TituloCard icone={Globe} cor="text-fuchsia-400">
+            Página da academia
+          </TituloCard>
+          <p className="mt-1 text-[12.5px] text-ac-muted">
+            Página pública com os planos, aulas, horários e o botão do WhatsApp. A aparência e os textos você muda em{" "}
+            <Link to="/academia/pagina" className="text-violet-300 underline">
+              Página da academia
+            </Link>
+            .
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Campo rotulo="Endereço da página" className="sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-[12.5px] text-ac-muted">{c.paginaPublica.replace(/[^/]*$/, "")}</span>
+                <input className={classeInput} value={c.slug} onChange={(e) => mudar("slug", e.target.value.toLowerCase())} />
+              </div>
+            </Campo>
+            <Campo rotulo="WhatsApp (com DDD)">
+              <input
+                className={classeInput}
+                inputMode="tel"
+                value={c.whatsapp ?? ""}
+                onChange={(e) => mudar("whatsapp", e.target.value)}
+                placeholder="(11) 99999-0000"
+              />
+            </Campo>
+            <div className="flex items-end">
+              <a href={original.paginaPublica} target="_blank" rel="noreferrer" className="text-sm text-violet-300 underline">
+                Abrir a página
+              </a>
+            </div>
           </div>
         </Card>
 

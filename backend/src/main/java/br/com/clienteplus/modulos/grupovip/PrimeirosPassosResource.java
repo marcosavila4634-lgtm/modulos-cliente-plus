@@ -41,9 +41,9 @@ public class PrimeirosPassosResource {
 
         List<Passo> passos = new ArrayList<>();
         passos.add(new Passo("negocio", "Dados do negócio e página de vendas",
-                "Nome, descrição, benefícios e foto de capa que aparecem para quem vai assinar.",
+                "Textos, fotos, cores e seções da página onde as pessoas assinam.",
                 c.descricaoPagina != null && !c.descricaoPagina.isBlank() && c.fotoCapa != null, false, "pagina",
-                "/grupo-vip/configuracoes"));
+                "/grupo-vip/pagina"));
         passos.add(new Passo("grupos", "Cadastre seus grupos", "Os grupos do Telegram e do WhatsApp que você vende.",
                 !grupos.isEmpty(), false, "grupo", "/grupo-vip/grupos"));
         if (!telegram.isEmpty() || grupos.isEmpty()) {

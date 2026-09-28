@@ -10,6 +10,7 @@ import br.com.clienteplus.modulos.clienteplus.ProgramaIndicacao;
 import br.com.clienteplus.modulos.clienteplus.Saque;
 import br.com.clienteplus.modulos.comum.Erro;
 import br.com.clienteplus.modulos.grupovip.PublicoContrato.*;
+import br.com.clienteplus.modulos.paginas.Paginas;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
@@ -61,6 +62,9 @@ public class PublicoResource {
     @Inject
     EnderecoPublico endereco;
 
+    @Inject
+    Paginas paginas;
+
     // ---------- Página de vendas ----------
 
     private static Config porSlug(String slug) {
@@ -88,6 +92,11 @@ public class PublicoResource {
     @Transactional
     public PaginaVendas pagina(@PathParam("slug") String slug, @QueryParam("ref") String ref) {
         Config c = porSlug(slug);
+        return montar(c, ref, paginas.publicada(c.storeId, PaginaGrupoVip.MODULO));
+    }
+
+    // Dados da página de vendas. Também vão para a prévia do editor da página.
+    static PaginaVendas montar(Config c, String ref, com.fasterxml.jackson.databind.JsonNode pagina) {
         Membros.Base base = new Membros.Base(c.storeId, c);
         String indicador = null;
         if (ref != null && !ref.isBlank()) {
@@ -100,7 +109,7 @@ public class PublicoResource {
                 .toList();
         int ativos = (int) base.estados.values().stream().filter(Membros.Estado::temAcesso).count();
         return new PaginaVendas(c.nomeNegocio, c.slug, c.descricaoPagina, beneficios, c.fotoCapa, c.whatsappSuporte,
-                planosAVenda(base), indicador, ativos);
+                planosAVenda(base), indicador, ativos, pagina);
     }
 
     @GET

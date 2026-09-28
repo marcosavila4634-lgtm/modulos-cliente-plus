@@ -1,13 +1,12 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Bot, Building2, CircleCheck, Globe, Pencil, Plus, QrCode, Save, ShieldCheck, Ticket, Trash2, Unplug } from "lucide-react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Bot, Building2, CircleCheck, Globe, Palette, Pencil, Plus, QrCode, Save, ShieldCheck, Ticket, Trash2, Unplug } from "lucide-react";
 import { useState } from "react";
-import { CampoMidia } from "../../components/grupo-vip/CampoMidia";
 import {
   Botao,
   BotaoCopiar,
   Campo,
+  classeBotao,
   classeInput,
-  classeTexto,
   Interruptor,
   MensagemErro,
   Modal,
@@ -171,33 +170,17 @@ function PaginaConfiguracoes() {
               <Botao pequeno>Abrir</Botao>
             </a>
           </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="flex flex-col gap-3">
-              <Campo rotulo="Endereço da página" dica={`${c.enderecoPublico}/g/ + este nome (letras minúsculas, números e hífen).`}>
-                <input className={classeInput} value={f.slug} onChange={muda("slug")} />
-              </Campo>
-              <Campo rotulo="Descrição">
-                <textarea className={classeTexto} rows={4} value={f.descricaoPagina} onChange={muda("descricaoPagina")} />
-              </Campo>
-              <Campo rotulo="Benefícios (um por linha)">
-                <textarea className={classeTexto} rows={5} value={f.beneficios} onChange={muda("beneficios")} />
-              </Campo>
-            </div>
-            <div>
-              <span className="text-xs font-medium text-slate-300">Foto de capa</span>
-              <div className="mt-1.5">
-                <CampoMidia
-                  soImagem
-                  url={f.fotoCapa}
-                  tipo={f.fotoCapa ? "imagem" : null}
-                  aoMudar={(fotoCapa) => {
-                    setOk(false);
-                    setF((v) => ({ ...v, fotoCapa }));
-                  }}
-                />
-              </div>
-            </div>
+          <div className="mt-4 flex flex-wrap items-end gap-4">
+            <Campo rotulo="Endereço da página" className="min-w-[240px] flex-1" dica={`${c.enderecoPublico}/g/ + este nome (letras minúsculas, números e hífen).`}>
+              <input className={classeInput} value={f.slug} onChange={muda("slug")} />
+            </Campo>
+            <Link to="/grupo-vip/pagina" className={classeBotao("primario")}>
+              <Palette className="size-4" /> Personalizar a página
+            </Link>
           </div>
+          <p className="mt-2 text-[12.5px] text-gv-muted">
+            Textos, fotos, cores, benefícios, depoimentos, vídeo e a ordem das partes da página ficam em <b>Página de vendas</b>.
+          </p>
         </Card>
 
         <Card className="xl:col-span-2">
@@ -334,7 +317,7 @@ function PaginaConfiguracoes() {
       </div>
 
       <Dica icone={Save} cor="amber">
-        Lembre de tocar em <b>Salvar</b> (no alto da tela) depois de mudar os dados, a página de vendas, as regras ou o Pix.
+        Lembre de tocar em <b>Salvar</b> (no alto da tela) depois de mudar os dados, o endereço da página, as regras ou o Pix.
       </Dica>
 
       {cupom && (

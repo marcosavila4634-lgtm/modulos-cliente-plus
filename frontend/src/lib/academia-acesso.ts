@@ -116,6 +116,10 @@ export type Configuracoes = {
   email: string | null;
   endereco: string | null;
   cnpj: string | null;
+  whatsapp: string | null;
+  // página pública: /a/<slug> (editada em "Página da academia")
+  slug: string;
+  paginaPublica: string;
   capacidade: number;
   validadeFichaSemanas: number;
   reavaliacaoDias: number;

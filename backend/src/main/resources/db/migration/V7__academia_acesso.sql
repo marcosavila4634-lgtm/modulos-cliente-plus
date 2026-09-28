@@ -21,6 +21,8 @@ create table academia_config (
   email text,
   endereco text,
   cnpj text,
+  whatsapp text,                           -- só números, com DDD (botões da página pública)
+  slug text unique,                        -- página pública: /a/<slug>
   -- quantas pessoas cabem ao mesmo tempo (base da ocupação nos horários de pico)
   capacidade integer not null default 80 check (capacidade > 0),
   -- controle de acesso

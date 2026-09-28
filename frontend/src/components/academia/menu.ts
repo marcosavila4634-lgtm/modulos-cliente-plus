@@ -8,6 +8,7 @@ import {
   FileChartColumn,
   FingerprintPattern,
   Gift,
+  Globe,
   HeartPulse,
   LayoutDashboard,
   Settings,
@@ -39,5 +40,6 @@ export const menuAcademia: ItemMenu[] = [
   { secao: "comissao", rotulo: "Comissão", icone: BadgePercent },
   { secao: "beneficios", rotulo: "Benefícios", icone: Gift },
   { secao: "relatorios", rotulo: "Relatórios", icone: FileChartColumn },
+  { secao: "pagina", rotulo: "Página da academia", icone: Globe },
   { secao: "configuracoes", rotulo: "Configurações", icone: Settings },
 ];

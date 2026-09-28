@@ -1,5 +1,6 @@
 package br.com.clienteplus.modulos.grupovip;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -28,7 +29,10 @@ public final class PublicoContrato {
             List<PlanoPublico> planos,
             // primeiro nome de quem indicou (link com ?ref=)
             String indicadoPor,
-            int membros) {}
+            int membros,
+            // página personalizada publicada (null = página padrão); formato em
+            // frontend/src/lib/pagina.ts
+            JsonNode pagina) {}
 
     public record CupomAplicado(String codigo, Number desconto, Number valorFinal) {}
 

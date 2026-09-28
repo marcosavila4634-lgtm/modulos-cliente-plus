@@ -16,6 +16,10 @@ public class AcademiaConfig extends EntidadeDaLoja {
     public String email;
     public String endereco;
     public String cnpj;
+    // só números, com DDD: botões de WhatsApp da página pública
+    public String whatsapp;
+    // página pública: /a/<slug> (criado com o nome da academia na 1ª leitura)
+    public String slug;
     // pessoas ao mesmo tempo (base da ocupação nos horários de pico)
     public int capacidade = 80;
 

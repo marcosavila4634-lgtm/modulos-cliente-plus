@@ -145,6 +145,45 @@ scripts/mvnw.mjs     chama backend/mvnw(.cmd) a partir dos scripts npm
   próprios em `frontend/src/components/<slug>/`.
 - Atualize o `status` do módulo em `db/dados-demo/V101__demo_modulos.sql` conforme avança.
 
+## Página pública personalizável (comum a TODOS os módulos)
+
+Pedido do usuário: o dono de qualquer módulo monta a própria página pública
+(mesmo layout, tudo editável) e o MESMO editor serve para todos os módulos.
+
+- Banco: `db/migration/V20__paginas.sql` (`modulos_paginas`: rascunho e
+  publicada por loja+módulo, JSON em text; `modulos_paginas_versoes`: 20
+  últimas publicações). O servidor não interpreta as seções; só valida forma,
+  tamanho e bloqueia `javascript:`/`data:` em campos de link/imagem.
+- Backend `paginas/`: `Paginas.java` (rascunho, publicar, descartar,
+  restaurar), `PaginasResource` em `/api/paginas/<modulo>`,
+  `ModuloComPagina` (interface que cada módulo implementa: loja, link,
+  dados para a prévia, `aoPublicar`).
+- Frontend: formato (tema + seções, catálogo, `completar`) em
+  `lib/pagina.ts`; desenho em `components/pagina/PaginaPublica.tsx` (usa
+  container queries `@xl/@3xl/@5xl` para a prévia "celular" ficar igual ao
+  celular); editor em `components/pagina/EditorPagina.tsx` + `campos.tsx`
+  (salva o rascunho sozinho, Publicar, versões, voltar ao modelo inicial,
+  prévia celular/computador, clicar na prévia abre a seção).
+- Seções: topo, aviso, benefícios, planos, como funciona, texto com foto,
+  vídeo (YouTube/Vimeo/enviado), depoimentos, galeria, perguntas, equipe,
+  aulas, horários, endereço e mapa, chamada final, contato/rodapé. Tema:
+  fundo (8 opções, 2 claras), cores (prontas ou livres), letra, cantos.
+- Cada módulo tem um adaptador `lib/pagina-<modulo>.tsx` (seções permitidas,
+  página padrão, dados → `DadosPagina`, cores do editor) e a tela
+  `routes/<modulo>/pagina.tsx`. **Módulo novo com página:** implementar
+  `ModuloComPagina`, a rota pública que devolve `Paginas.publicada(...)` e
+  o adaptador.
+  - Grupos VIP: `/g/<slug>`, `PaginaGrupoVip.java`, menu "Página de
+    vendas". A página padrão é igual à que existia; ao publicar, a descrição,
+    os benefícios e a capa são copiados para `grupo_vip_config` (robô
+    "Conhecer mais" e Primeiros passos usam). Checkout usa as cores da página.
+  - Academia: página NOVA `/a/<slug>`, `PaginaAcademia.java` (rota
+    `/api/academia/publico/<slug>`), menu "Página da academia";
+    `academia_config.slug` e `whatsapp` (Configurações). Botão do plano
+    abre o WhatsApp com o plano (matrícula continua na recepção; decisão).
+- No projeto principal pode virar parte do "Personalizar Loja"
+  (`stores.page_config`/`store_page_versions`, JSON em jsonb).
+
 ## Módulo Academia ("Gestão Plus Academia") — pronto para migrar
 
 Todas as abas do menu funcionam (o usuário pediu para terminar o módulo sem

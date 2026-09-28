@@ -27,6 +27,8 @@ export type PaginaVendas = {
   planos: PlanoPublico[];
   indicadoPor: string | null;
   membros: number;
+  // página personalizada publicada (null = padrão); formato em lib/pagina.ts
+  pagina: unknown | null;
 };
 
 export type PedidoCheckout = {

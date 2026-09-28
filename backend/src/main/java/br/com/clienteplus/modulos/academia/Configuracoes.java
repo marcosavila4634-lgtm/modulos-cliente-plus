@@ -18,6 +18,9 @@ import java.util.UUID;
 @ApplicationScoped
 public class Configuracoes {
 
+    @jakarta.inject.Inject
+    br.com.clienteplus.modulos.grupovip.EnderecoPublico endereco;
+
     static final String[] DIAS = {"Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"};
 
     @Transactional
@@ -28,6 +31,7 @@ public class Configuracoes {
             c.storeId = storeId;
             c.persist();
         }
+        if (c.slug == null) c.slug = slugLivre(painel(storeId).nomeAcademia, storeId);
         return c;
     }
 
@@ -70,10 +74,12 @@ public class Configuracoes {
     }
 
     public Tela tela(UUID storeId) {
-        return new Tela(painel(storeId), config(storeId), horarios(storeId));
+        AcademiaConfig c = config(storeId);
+        return new Tela(painel(storeId), c, horarios(storeId), endereco.base() + "/a/" + c.slug);
     }
 
-    public record Tela(AcademiaPainel painel, AcademiaConfig config, List<HorarioFuncionamento> horarios) {
+    public record Tela(AcademiaPainel painel, AcademiaConfig config, List<HorarioFuncionamento> horarios,
+                       String paginaPublica) {
         ConfiguracoesJson json() {
             return new ConfiguracoesJson(
                     painel.nomeAcademia,
@@ -84,6 +90,9 @@ public class Configuracoes {
                     config.email,
                     config.endereco,
                     config.cnpj,
+                    config.whatsapp,
+                    config.slug,
+                    paginaPublica,
                     config.capacidade,
                     config.validadeFichaSemanas,
                     config.reavaliacaoDias,
@@ -141,6 +150,20 @@ public class Configuracoes {
         c.endereco = texto(d.endereco());
         c.cnpj = d.cnpj() != null && !d.cnpj().replaceAll("\\D", "").isEmpty() ? d.cnpj().replaceAll("\\D", "") : null;
         if (c.cnpj != null && c.cnpj.length() != 14) throw Erro.invalido("CNPJ inválido: precisa ter 14 números");
+        String zap = d.whatsapp() != null ? d.whatsapp().replaceAll("\\D", "") : "";
+        if (zap.startsWith("55") && zap.length() >= 12) zap = zap.substring(2);
+        if (!zap.isEmpty() && (zap.length() < 10 || zap.length() > 11)) {
+            throw Erro.invalido("WhatsApp inválido: use DDD + número");
+        }
+        c.whatsapp = zap.isEmpty() ? null : zap;
+        if (d.slug() != null) {
+            String slug = d.slug().trim().toLowerCase();
+            if (!slug.matches(SLUG)) throw Erro.invalido("Endereço da página: de 3 a 40 letras minúsculas, números ou hífen");
+            if (AcademiaConfig.count("slug = ?1 and storeId <> ?2", slug, storeId) > 0) {
+                throw Erro.invalido("Este endereço de página já está em uso");
+            }
+            c.slug = slug;
+        }
         c.capacidade = d.capacidade();
         c.validadeFichaSemanas = d.validadeFichaSemanas();
         c.reavaliacaoDias = d.reavaliacaoDias();
@@ -172,6 +195,22 @@ public class Configuracoes {
         } catch (DateTimeParseException | StringIndexOutOfBoundsException e) {
             throw Erro.invalido(dia + ": horário inválido");
         }
+    }
+
+    static final String SLUG = "[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]";
+
+    // "Academia Prime" -> "academia-prime" (com número no fim se já existir).
+    private static String slugLivre(String nome, UUID storeId) {
+        String base = java.text.Normalizer.normalize(nome == null ? "" : nome, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (base.length() > 34) base = base.substring(0, 34).replaceAll("-+$", "");
+        if (!base.matches(SLUG)) base = "academia";
+        String slug = base;
+        for (int n = 2; AcademiaConfig.count("slug = ?1 and storeId <> ?2", slug, storeId) > 0; n++) slug = base + "-" + n;
+        return slug;
     }
 
     private static String texto(String s) {
