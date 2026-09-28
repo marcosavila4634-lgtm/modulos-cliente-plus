@@ -46,7 +46,9 @@ public final class MembrosContrato {
             boolean participaIndicacoes,
             boolean ativo,
             List<Opcao> grupos,
-            int assinantes) {}
+            int assinantes,
+            // grupoId -> "completo" | "sem_midia" | "leitura" (Telegram com o robô)
+            Map<UUID, String> permissoes) {}
 
     public record AssinaturaAtual(
             UUID id,
@@ -72,7 +74,21 @@ public final class MembrosContrato {
             String status,
             String conviteLink,
             OffsetDateTime entrouEm,
-            String pendencia) {}
+            String pendencia,
+            // só grupos do Telegram com o robô
+            PermissaoMembro permissao) {}
+
+    // Permissão do membro no grupo (Permissoes.java).
+    //   efetiva: "completo" | "sem_midia" | "leitura" (o que vale agora)
+    //   origem: "plano" | "atraso" | "manual" | "administrador"
+    //   nivel/nivelAte: escolhido na ficha (null = segue o plano); doPlano: o do plano
+    //   aplicada: o robô já aplicou no Telegram
+    public record PermissaoMembro(String efetiva, String origem, boolean administrador, List<String> direitos, String titulo,
+                                  String nivel, OffsetDateTime nivelAte, String doPlano, boolean aplicada, String erro) {}
+
+    // nivel null = segue o plano; nivelAte null = sem prazo
+    public record DadosPermissao(String nivel, OffsetDateTime nivelAte, boolean administrador, List<String> direitos,
+                                 String titulo) {}
 
     // status: "pendente" | "enviada" | "falhou" | "descartada"; whatsapp = link para enviar
     public record MensagemJson(

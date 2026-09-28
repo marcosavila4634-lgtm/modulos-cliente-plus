@@ -17,6 +17,7 @@ import {
 import { CabecalhoPagina, Card, Dica, TituloCard } from "../../components/grupo-vip/ui";
 import { formatar, haQuanto } from "../../lib/grupo-vip";
 import { apiConfig, type Configuracoes, type Cupom, type DadosConfiguracoes, type DadosCupom } from "../../lib/grupo-vip-financeiro";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 // Configurações do módulo Grupos VIP.
 export const Route = createFileRoute("/grupo-vip/configuracoes")({
@@ -37,6 +38,7 @@ function dadosDe(c: Configuracoes): DadosConfiguracoes {
     frase: c.frase,
     fraseDestaque: c.fraseDestaque,
     toleranciaDias: c.toleranciaDias,
+    atrasadoSomenteLeitura: c.atrasadoSomenteLeitura,
     chavePix: c.chavePix ?? "",
     nomeRecebedor: c.nomeRecebedor ?? "",
     cidadeRecebedor: c.cidadeRecebedor ?? "",
@@ -108,7 +110,9 @@ function PaginaConfiguracoes() {
         </Card>
 
         <Card>
-          <TituloCard icone={ShieldCheck}>Regras de acesso</TituloCard>
+          <TituloCard icone={ShieldCheck} acao={<BotaoGuia id="permissoes" rotulo="Permissões no Telegram" />}>
+            Regras de acesso
+          </TituloCard>
           <Campo
             rotulo="Tolerância de atraso (dias)"
             className="mt-4 max-w-[240px]"
@@ -123,8 +127,21 @@ function PaginaConfiguracoes() {
               onChange={(e) => setF((v) => ({ ...v, toleranciaDias: Number(e.target.value) }))}
             />
           </Campo>
+          <div className="mt-4">
+            <Interruptor
+              ligado={f.atrasadoSomenteLeitura}
+              aoMudar={(atrasadoSomenteLeitura) => {
+                setOk(false);
+                setF((v) => ({ ...v, atrasadoSomenteLeitura }));
+              }}
+              titulo="Atrasado só lê (Telegram)"
+              descricao="Enquanto está atrasado (dentro da tolerância), o membro continua no grupo mas não pode escrever. Pagou, o robô libera sozinho. Só em grupos do Telegram com o robô."
+            />
+          </div>
           <div className="mt-5">
-            <TituloCard icone={QrCode}>Pix</TituloCard>
+            <TituloCard icone={QrCode} acao={<BotaoGuia id="pix" />}>
+              Pix
+            </TituloCard>
             <p className="mt-1 text-[12.5px] text-gv-muted">
               Com a chave preenchida, a área do membro mostra o QR Code e o "copia e cola" de cada cobrança, com o valor certo. O
               dinheiro cai direto na sua conta; depois você confirma o recebimento no painel.
@@ -144,7 +161,9 @@ function PaginaConfiguracoes() {
         </Card>
 
         <Card className="xl:col-span-2">
-          <TituloCard icone={Globe}>Página de vendas</TituloCard>
+          <TituloCard icone={Globe} acao={<BotaoGuia id="pagina" />}>
+            Página de vendas
+          </TituloCard>
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-gv-line bg-gv-bg/40 px-3 py-2">
             <span className="min-w-0 flex-1 truncate text-sm text-slate-200">{c.paginaVendas}</span>
             <BotaoCopiar texto={c.paginaVendas} rotulo="Copiar link" />
@@ -182,7 +201,9 @@ function PaginaConfiguracoes() {
         </Card>
 
         <Card className="xl:col-span-2">
-          <TituloCard icone={Bot}>Robô do Telegram</TituloCard>
+          <TituloCard icone={Bot} acao={<BotaoGuia id="robo" rotulo="Passo a passo" />}>
+            Robô do Telegram
+          </TituloCard>
           {c.robo.conectado ? (
             <div className="mt-3 flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] px-3 py-2.5">
@@ -229,7 +250,10 @@ function PaginaConfiguracoes() {
                     ))}
                   </ul>
                 )}
-                <p className="mt-2 text-[12.5px] text-gv-muted">Depois, em Grupos e planos, abra o grupo e informe o ID.</p>
+                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-gv-muted">
+                  Depois, em Grupos e planos, abra o grupo e informe o ID.
+                  <BotaoGuia id="robo-admin" rotulo="Como colocar o robô como administrador?" />
+                </p>
               </div>
             </div>
           ) : (
@@ -270,7 +294,17 @@ function PaginaConfiguracoes() {
         </Card>
 
         <Card className="xl:col-span-2">
-          <TituloCard icone={Ticket} acao={<Botao pequeno variante="primario" onClick={() => setCupom("novo")}><Plus className="size-3.5" /> Novo cupom</Botao>}>
+          <TituloCard
+            icone={Ticket}
+            acao={
+              <span className="flex items-center gap-3">
+                <BotaoGuia id="cupom" />
+                <Botao pequeno variante="primario" onClick={() => setCupom("novo")}>
+                  <Plus className="size-3.5" /> Novo cupom
+                </Botao>
+              </span>
+            }
+          >
             Cupons de desconto
           </TituloCard>
           <p className="mt-1 text-[12.5px] text-gv-muted">O desconto vale para o primeiro pagamento, na página de vendas.</p>

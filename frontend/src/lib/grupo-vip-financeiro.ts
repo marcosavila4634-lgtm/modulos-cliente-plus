@@ -154,6 +154,8 @@ export type Configuracoes = {
   frase: string;
   fraseDestaque: string;
   toleranciaDias: number;
+  // Telegram: quem está atrasado (dentro da tolerância) só lê os grupos
+  atrasadoSomenteLeitura: boolean;
   chavePix: string | null;
   nomeRecebedor: string | null;
   cidadeRecebedor: string | null;

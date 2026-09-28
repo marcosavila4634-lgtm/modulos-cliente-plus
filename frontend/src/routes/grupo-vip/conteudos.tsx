@@ -40,6 +40,7 @@ import {
   type DadosConteudo,
   type ListaConteudos,
 } from "../../lib/grupo-vip-conteudos";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Filtro = "todos" | "publicado" | "agendado" | "rascunho" | "manual";
 type Busca = { novo?: boolean };
@@ -99,6 +100,7 @@ function PaginaConteudos() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="conteudos" />}
         titulo="Conteúdos"
         descricao="Publique nos grupos agora ou agende. Nos grupos do Telegram com o robô a postagem é automática; no WhatsApp você copia o texto, posta e marca como publicado."
       >

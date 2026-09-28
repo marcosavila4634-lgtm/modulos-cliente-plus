@@ -63,6 +63,7 @@ public class ConfiguracoesResource {
             String frase,
             String fraseDestaque,
             int toleranciaDias,
+            boolean atrasadoSomenteLeitura,
             String chavePix,
             String nomeRecebedor,
             String cidadeRecebedor,
@@ -85,6 +86,7 @@ public class ConfiguracoesResource {
             String frase,
             String fraseDestaque,
             Integer toleranciaDias,
+            Boolean atrasadoSomenteLeitura,
             String chavePix,
             String nomeRecebedor,
             String cidadeRecebedor,
@@ -103,7 +105,7 @@ public class ConfiguracoesResource {
                 .map(ConfiguracoesResource::cupom)
                 .toList();
         return new ConfigJson(c.nomeNegocio, c.slug, c.descricaoPagina, c.beneficios, c.fotoCapa, c.gestorNome,
-                c.gestorSobrenome, c.gestorCargo, c.frase, c.fraseDestaque, c.toleranciaDias, c.chavePix,
+                c.gestorSobrenome, c.gestorCargo, c.frase, c.fraseDestaque, c.toleranciaDias, c.atrasadoSomenteLeitura, c.chavePix,
                 c.nomeRecebedor, c.cidadeRecebedor, c.whatsappSuporte,
                 new Robo(c.robo(), c.telegramBotUsuario, robo.erro(storeId), robo.ultimaConsulta(storeId)),
                 endereco.paginaVendas(c.slug, null), endereco.base(), cupons, robo.detectados(storeId));
@@ -148,6 +150,7 @@ public class ConfiguracoesResource {
         c.frase = texto(d.frase());
         c.fraseDestaque = texto(d.fraseDestaque());
         c.toleranciaDias = tolerancia;
+        if (d.atrasadoSomenteLeitura() != null) c.atrasadoSomenteLeitura = d.atrasadoSomenteLeitura();
         c.chavePix = chave;
         c.nomeRecebedor = Membros.limpo(d.nomeRecebedor());
         c.cidadeRecebedor = Membros.limpo(d.cidadeRecebedor());
@@ -173,6 +176,13 @@ public class ConfiguracoesResource {
             telegram.chamar(token, "deleteWebhook", Map.of("drop_pending_updates", false));
         } catch (Telegram.ErroTelegram e) {
             throw Erro.invalido(e.getMessage());
+        }
+        try {
+            // botão "Menu" da conversa com o robô
+            Map<String, String> comandos = QuarkusTransaction.requiringNew().call(() -> Biblioteca.comandos(membros.config(storeId)));
+            telegram.definirComandos(token, comandos);
+        } catch (Telegram.ErroTelegram ignorado) {
+            // só o atalho do menu: não impede de conectar
         }
         String usuario = eu.path("username").asText();
         QuarkusTransaction.requiringNew().run(() -> {

@@ -26,6 +26,7 @@ import {
   type Pendencia,
   type ResultadoAutomacao,
 } from "../../lib/grupo-vip-membros";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Aba = AcaoAcesso | "historico";
 
@@ -80,6 +81,7 @@ function PaginaAcessos() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="controle-acesso" />}
         titulo="Controle de acesso"
         descricao={`Quem pagou precisa estar no grupo; quem ficou mais de ${d.toleranciaDias} dias sem pagar precisa sair. Com o robô do Telegram isso acontece sozinho a cada minuto.`}
       >

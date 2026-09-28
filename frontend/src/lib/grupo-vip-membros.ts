@@ -17,6 +17,52 @@ export type Plano = {
   ativo: boolean;
   grupos: Opcao[];
   assinantes: number;
+  // grupoId -> o que quem assina pode fazer no grupo (Telegram com o robô)
+  permissoes: Record<string, NivelPermissao>;
+};
+
+// completo = tudo o que o grupo permite | sem_midia = só texto | leitura = só lê
+export type NivelPermissao = "completo" | "sem_midia" | "leitura";
+
+export const rotuloNivel: Record<NivelPermissao, string> = {
+  completo: "Tudo liberado",
+  sem_midia: "Só texto (sem fotos, vídeos e arquivos)",
+  leitura: "Só leitura",
+};
+
+// Direitos de administrador (nomes da API do Telegram).
+export const direitosAdmin: { valor: string; rotulo: string }[] = [
+  { valor: "can_delete_messages", rotulo: "Apagar mensagens" },
+  { valor: "can_restrict_members", rotulo: "Silenciar e banir membros" },
+  { valor: "can_pin_messages", rotulo: "Fixar mensagens" },
+  { valor: "can_invite_users", rotulo: "Convidar pessoas" },
+  { valor: "can_change_info", rotulo: "Mudar nome, foto e descrição" },
+  { valor: "can_manage_topics", rotulo: "Gerenciar tópicos" },
+  { valor: "can_manage_video_chats", rotulo: "Fazer lives (chamadas de vídeo)" },
+];
+
+// Permissão do membro num grupo do Telegram com o robô (Permissoes.java).
+export type PermissaoMembro = {
+  efetiva: NivelPermissao;
+  origem: "plano" | "atraso" | "manual" | "administrador";
+  administrador: boolean;
+  direitos: string[];
+  titulo: string | null;
+  // escolhido na ficha (null = segue o plano)
+  nivel: NivelPermissao | null;
+  nivelAte: string | null;
+  doPlano: NivelPermissao;
+  // o robô já aplicou no Telegram
+  aplicada: boolean;
+  erro: string | null;
+};
+
+export type DadosPermissao = {
+  nivel: NivelPermissao | null;
+  nivelAte: string | null;
+  administrador: boolean;
+  direitos: string[];
+  titulo: string | null;
 };
 
 export type MembroResumo = {
@@ -71,6 +117,8 @@ export type GrupoDoMembro = {
   conviteLink: string | null;
   entrouEm: string | null;
   pendencia: AcaoAcesso | null;
+  // só grupos do Telegram com o robô
+  permissao: PermissaoMembro | null;
 };
 
 export type StatusMensagem = "pendente" | "enviada" | "falhou" | "descartada";
@@ -210,6 +258,7 @@ export type DadosPlano = {
   participaIndicacoes: boolean;
   ativo: boolean;
   grupoIds: string[];
+  permissoes: Record<string, NivelPermissao>;
 };
 
 // ---------- Controle de acesso ----------
@@ -262,6 +311,8 @@ export const apiMembros = {
   receber: (cobrancaId: string, formaPagamento: FormaPagamento) =>
     http.post<MembroDetalhe>(`/grupo-vip/membros/cobrancas/${cobrancaId}/receber`, { formaPagamento }),
   mensagem: (id: string, texto: string) => http.post<Mensagem>(`/grupo-vip/membros/${id}/mensagem`, { texto }),
+  permissoes: (id: string, grupoId: string, d: DadosPermissao) =>
+    http.put<MembroDetalhe>(`/grupo-vip/membros/${id}/permissoes/${grupoId}`, d),
 };
 
 export const apiGrupos = {

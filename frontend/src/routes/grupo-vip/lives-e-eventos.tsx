@@ -6,6 +6,7 @@ import { Botao, Campo, classeInput, classeTexto, MensagemErro, Modal, mensagemDe
 import { Abas, CabecalhoPagina, Card, Dica, Vazio } from "../../components/grupo-vip/ui";
 import { formatar } from "../../lib/grupo-vip";
 import { apiConteudos, paraCampoDataHora, type DadosLive, type GrupoOpcao, type Live } from "../../lib/grupo-vip-conteudos";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Busca = { novo?: boolean };
 type Filtro = "proximas" | "passadas";
@@ -59,7 +60,8 @@ function PaginaLives() {
 
   return (
     <div className="flex flex-col gap-5 py-4">
-      <CabecalhoPagina titulo="Lives e Eventos" descricao="Agende as lives. O aviso sai sozinho antes de começar, nos grupos e no privado dos membros.">
+      <CabecalhoPagina
+        guia={<BotaoGuia id="lives" />} titulo="Lives e Eventos" descricao="Agende as lives. O aviso sai sozinho antes de começar, nos grupos e no privado dos membros.">
         <Botao variante="primario" onClick={() => setEditando("nova")}>
           <Plus className="size-4" /> Agendar live
         </Botao>

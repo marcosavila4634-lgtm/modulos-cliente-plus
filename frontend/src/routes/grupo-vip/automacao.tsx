@@ -26,6 +26,7 @@ import {
   type PainelAutomacao,
 } from "../../lib/grupo-vip-conteudos";
 import { rotuloTipoMensagem, type Mensagem, type ResultadoAutomacao } from "../../lib/grupo-vip-membros";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Aba = "saida" | "enviadas" | "regras";
 
@@ -51,6 +52,7 @@ function PaginaAutomacao() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="automacoes" />}
         titulo="Automação"
         descricao="As automações rodam sozinhas a cada minuto: lembram o vencimento, avisam o atraso, dão boas-vindas, avisam as lives e cuidam do acesso aos grupos."
       >

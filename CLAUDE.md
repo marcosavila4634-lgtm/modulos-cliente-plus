@@ -318,6 +318,11 @@ decisões abaixo podem ser revistas por ele.
   Mensagens do privado têm botão conforme o tipo (`Mensageiro.botoes`); se o
   Telegram recusar o link do botão (endereço local), reenvia sem botão.
   NÃO testado com um robô real no laboratório (sem token): testar ao conectar.
+  Teste com Telegram/Google de mentira: empacotar (`mvnw package
+  -Dquarkus.package.output-directory=teste-app`), copiar para fora de
+  `target`, rodar o jar na porta 3002 com `-Dgrupo-vip.telegram-api=...`
+  etc. apontando para um servidor node falso (assim o `npm run dev` do
+  usuário na 3001 continua intacto).
 - **Biblioteca** (tela `/grupo-vip/biblioteca`, `Biblioteca.java`,
   `EnvioEmMassa.java`, `GoogleDrive.java`, `BibliotecaResource`/
   `BibliotecaContrato` ↔ `lib/grupo-vip-biblioteca.ts`; tabelas
@@ -347,6 +352,77 @@ decisões abaixo podem ser revistas por ele.
     Conteúdo protegido não pode ser encaminhado (conta em `protegidas`; o
     dono desliga "Restringir conteúdo salvo"). Robô não copia grupos em que
     não é administrador (grupos de terceiros: não fazer).
+  - **Menu do robô** (`Atendente.java`, a pedido do usuário): no privado,
+    o robô responde com botões (`callback_data` "m:<ação>" e "livro:<id>";
+    tocar troca a própria mensagem com `editMessageText`). Membro: Baixar um
+    livro (nome, autor, categoria, gênero, novidades, mais pedidos), Sugerir,
+    Livro surpresa, Meus pedidos, Meus grupos, Minha assinatura, Indique e
+    ganhe, Falar com a equipe, Conhecer mais. Visitante: Conhecer, planos,
+    "Já sou membro". Quando espera texto (nome, autor, sugestão, suporte)
+    guarda o passo em `grupo_vip_robo_conversas` por 15 min. Texto sem passo
+    que não é "oi"/"menu" vai para o Suporte (como antes). Mesmo arquivo em
+    vários grupos aparece uma vez (md5). Comandos /menu /livro /sugerir
+    /grupos (setMyCommands ao conectar o robô).
+  - **Dados dos livros** (`Catalogador.java`, `GoogleBooks.java`): subpasta
+    do Drive (ou da pasta do computador, campo `pasta`) = categoria; nome
+    "Autor - Título" dá o autor quando só um lado parece nome; o Google Books
+    (1 livro a cada 2 s, com a chave da Biblioteca ou sem chave) completa
+    título, autor, gênero (traduzido), capa, ano e resumo, só se o título
+    bater. `dados_status` manual = o dono editou (não troca mais).
+    `grupo-vip.google-books-api` troca o endereço (testes).
+  - Livros do Drive acima de 50 MB entram na biblioteca (não vão para o
+    grupo) e o robô entrega um **link temporário do sistema**
+    (`LinksDeLivro.java`, `LivroLinkResource` em `/api/grupo-vip/l/<token>`,
+    tabela `grupo_vip_livro_links`), NUNCA o endereço do Drive (pedido do
+    usuário: quem deixa de pagar não pode continuar abrindo). O link é de uma
+    pessoa, vale 24 h e, a cada clique, confere se ela ainda tem acesso ao
+    grupo do livro; o sistema busca o arquivo no Drive e repassa (`?ler=1`
+    abre PDF no navegador). Também é usado quando o Telegram recusa o arquivo.
+    Arquivo já baixado fica com a pessoa (isso nenhum sistema evita); os que
+    vão pelo Telegram seguem com `protect_content`.
+  - **Pasta do Drive privada** (`ContaServicoGoogle.java`,
+    `config.google_conta_servico`): o dono envia o JSON da conta de serviço
+    e compartilha a pasta (Restrita) com o e-mail dela. O sistema assina um
+    JWT RS256 e troca por um passe OAuth de 1 h (escopo drive.readonly;
+    `grupo-vip.google-token-api` troca o endereço nos testes). Com conta de
+    serviço, a chave de API é opcional (só Google Books). `GoogleDrive`
+    recebe `Credencial` (chave OU passe).
+  - **Sugestões** (`Sugestoes.java`, `grupo_vip_livro_sugestoes`, aba
+    Sugestões): 5 por dia por membro; atendida sozinha nas Automações quando
+    chega livro com as palavras do título (e do autor); o robô avisa com
+    botão "Receber agora". Dono pode marcar "Já está na biblioteca" ou recusar.
+  - **Livros ou outros materiais** (`config.biblioteca_tipo`, seletor no
+    topo da Biblioteca, `PUT /biblioteca/tipo`): em "materiais" os textos do
+    robô trocam "livro" por "material" (`Vocabulario.java`, só em textos
+    fixos, nunca em títulos), aceita também vídeo/imagem/planilha/
+    apresentação (`Biblioteca.extensoes`), não usa Google Books, gênero nem
+    autor pelo nome do arquivo, e o botão "Pelo autor" some se nenhum
+    material tiver autor. No código tudo continua se chamando `Livro`.
+    Arquivos sobem com `disable_content_type_detection` (vídeo/foto também
+    ficam como documento e o `file_id` vem em `document`).
+- **Permissões no Telegram** (`Permissoes.java`, `grupo_vip_permissoes`,
+  `grupo_vip_plano_grupos.permissao`, `config.atrasado_somente_leitura`):
+  robôs NÃO conseguem adicionar pessoas em grupos (regra do Telegram); a
+  entrada continua pelo link exclusivo. Níveis completo / sem_midia / leitura
+  (`restrictChatMember`). Ordem: administrador escolhido na ficha
+  (`promoteChatMember` + título até 16 letras) > nível escolhido na ficha
+  (com prazo opcional) > atrasado só lê (Configurações) > nível do plano no
+  grupo (Grupos e planos). Aplica nas Automações (25 por rodada), ao entrar
+  no grupo e ao salvar a ficha; `aplicado` evita repetir; erro espera 10
+  min. `aplicado` null + completo = nada a fazer (o robô nunca mexeu).
+- **Ajuda e passo a passo** (pedido do usuário: tudo intuitivo, com passo a
+  passo em qualquer integração/cadastro, sem poluir o visual). Textos em
+  `frontend/src/lib/grupo-vip-guias.tsx` (um guia por assunto: passos, "deu
+  certo quando", dicas, problemas comuns, tela). Componentes em
+  `components/grupo-vip/Ajuda.tsx`: `BotaoGuia` (link discreto "Como
+  fazer?" — no `guia` do `CabecalhoPagina`, no `acao` do `TituloCard` ou
+  dentro de dicas de campos; abre por portal), `CentralAjuda` (botão "?" do
+  topo, com busca) e `PrimeirosPassos` (Dashboard; itens vêm de
+  `PrimeirosPassosResource.java`, some quando o obrigatório está feito ou
+  se o dono esconder — localStorage). **Toda integração ou configuração
+  nova ganha um guia e um `BotaoGuia` na tela.** Janelas abertas de dentro
+  da barra do topo precisam de `createPortal` (o desfoque da barra prende
+  elementos `fixed`).
 - Conteúdos (`Conteudos.java`): publicar agora/agendar/rascunho em grupos
   escolhidos; WhatsApp fica "manual" até o dono marcar "Já postei". No
   Telegram: botão com link (`botao_texto`), fixar, tópico por grupo; o id do

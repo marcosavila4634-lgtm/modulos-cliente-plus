@@ -315,9 +315,28 @@ function Inicio({
           ) : (
             <>
               <p className="text-[14px] text-slate-300">Conecte seu Telegram para receber seus links de entrada e os avisos na hora.</p>
+              <ol className="mt-3 flex flex-col gap-1.5 text-[13px] text-slate-400">
+                <li>
+                  <b className="text-slate-200">1.</b> Toque em <b className="text-slate-200">Conectar Telegram</b>.
+                </li>
+                <li>
+                  <b className="text-slate-200">2.</b> O Telegram abre na conversa com o nosso robô: toque em{" "}
+                  <b className="text-slate-200">Iniciar</b> (ou "Start").
+                </li>
+                <li>
+                  <b className="text-slate-200">3.</b> Pronto: o robô te manda os links dos grupos e um menu com tudo o que você pode fazer.
+                </li>
+              </ol>
               <a href={a.telegram.linkRobo} target="_blank" rel="noreferrer" className={`${botao} mt-3 w-full bg-sky-500 text-white sm:w-auto`}>
                 <Send className="size-4" /> Conectar Telegram
               </a>
+              <p className="mt-2 text-[12px] text-slate-500">
+                Ainda não tem Telegram?{" "}
+                <a href="https://telegram.org/apps" target="_blank" rel="noreferrer" className="text-sky-300 underline">
+                  Baixe grátis aqui
+                </a>{" "}
+                e depois volte nesta página.
+              </p>
             </>
           )}
         </Bloco>

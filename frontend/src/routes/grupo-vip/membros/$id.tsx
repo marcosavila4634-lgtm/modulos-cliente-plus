@@ -7,6 +7,7 @@ import {
   CreditCard,
   ExternalLink,
   History,
+  KeyRound,
   Link2,
   LogIn,
   LogOut,
@@ -23,7 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { Botao, BotaoCopiar, MensagemErro, useAcao } from "../../../components/grupo-vip/formulario";
+import { BotaoGuia } from "../../../components/grupo-vip/Ajuda";
+import { Botao, BotaoCopiar, Campo, classeInput, Interruptor, MensagemErro, Modal, useAcao } from "../../../components/grupo-vip/formulario";
 import { ModalAssinar, ModalMembro, ModalMensagem, ModalReceber } from "../../../components/grupo-vip/ModaisMembro";
 import { Avatar, SeloCobranca, SeloPlataforma, SeloSituacao } from "../../../components/grupo-vip/Selos";
 import { Card, cabecalhoTabela, Dica, TituloCard } from "../../../components/grupo-vip/ui";
@@ -38,10 +40,14 @@ import {
 import {
   apiAcessos,
   apiMembros,
+  direitosAdmin,
+  rotuloNivel,
   rotuloTipoMensagem,
   type Cobranca,
+  type DadosPermissao,
   type GrupoDoMembro,
   type MembroDetalhe,
+  type NivelPermissao,
 } from "../../../lib/grupo-vip-membros";
 
 export const Route = createFileRoute("/grupo-vip/membros/$id")({
@@ -52,7 +58,7 @@ export const Route = createFileRoute("/grupo-vip/membros/$id")({
   component: FichaMembro,
 });
 
-type Janela = "editar" | "assinar" | "mensagem" | { receber: Cobranca } | null;
+type Janela = "editar" | "assinar" | "mensagem" | { receber: Cobranca } | { permissoes: GrupoDoMembro } | null;
 
 function FichaMembro() {
   const { membro: inicial, planos } = Route.useLoaderData();
@@ -158,7 +164,9 @@ function FichaMembro() {
         <div className="flex flex-col gap-4">
           {/* Assinatura */}
           <Card>
-            <TituloCard icone={CreditCard}>Assinatura</TituloCard>
+            <TituloCard icone={CreditCard} acao={<BotaoGuia id="receber" rotulo="Como confirmar um pagamento?" />}>
+              Assinatura
+            </TituloCard>
             {!a ? (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-gv-muted">Sem assinatura. Escolha um plano para liberar os grupos.</p>
@@ -268,6 +276,7 @@ function FichaMembro() {
                       </Botao>
                     )}
                   </div>
+                  {g.permissao && <LinhaPermissao g={g} aoEditar={() => setJanela({ permissoes: g })} />}
                   {g.conviteLink && g.status === "convidado" && (
                     <div className="flex w-full items-center gap-2 rounded-lg bg-gv-bg/50 px-2 py-1.5 text-xs text-slate-300">
                       <Link2 className="size-3.5 shrink-0 text-gv-muted" />
@@ -355,6 +364,7 @@ function FichaMembro() {
                 <span className={`ml-2 text-xs ${m.telegramConectado ? "text-emerald-300" : "text-gv-muted"}`}>
                   {m.telegramConectado ? "conectado ao robô" : "não conectado ao robô"}
                 </span>
+                {!m.telegramConectado && <BotaoGuia id="membro-telegram" rotulo="Como conectar?" className="ml-2" />}
               </Linha>
               <Linha rotulo="Nascimento">{formatar.data(m.dataNascimento)}</Linha>
               <Linha rotulo="CPF">{formatar.cpf(m.cpf)}</Linha>
@@ -481,7 +491,18 @@ function FichaMembro() {
         />
       )}
       {janela === "mensagem" && <ModalMensagem membro={m} aoFechar={() => setJanela(null)} aoEnviar={() => atualizar()} />}
-      {janela !== null && typeof janela === "object" && (
+      {janela !== null && typeof janela === "object" && "permissoes" in janela && (
+        <ModalPermissoes
+          membro={m}
+          grupo={janela.permissoes}
+          aoFechar={() => setJanela(null)}
+          aoSalvar={(novo) => {
+            setJanela(null);
+            atualizar(novo);
+          }}
+        />
+      )}
+      {janela !== null && typeof janela === "object" && "receber" in janela && (
         <ModalReceber
           cobranca={{ ...janela.receber, nome: m.nome }}
           aoFechar={() => setJanela(null)}
@@ -492,6 +513,175 @@ function FichaMembro() {
         />
       )}
     </div>
+  );
+}
+
+// O que o membro pode fazer no grupo do Telegram (e de onde vem).
+function LinhaPermissao({ g, aoEditar }: { g: GrupoDoMembro; aoEditar: () => void }) {
+  const p = g.permissao!;
+  const origem = {
+    plano: "pelo plano",
+    atraso: "porque está atrasado",
+    manual: p.nivelAte ? `escolhido aqui, até ${formatar.diaHora(p.nivelAte)}` : "escolhido aqui",
+    administrador: "",
+  }[p.origem];
+  return (
+    <div className="flex w-full flex-wrap items-center gap-2 rounded-lg bg-gv-bg/50 px-2.5 py-1.5 text-xs">
+      <KeyRound className="size-3.5 shrink-0 text-gv-muted" />
+      <span className="min-w-0 flex-1 text-slate-300">
+        {p.administrador ? (
+          <>
+            <b className="text-sky-300">Administrador</b>
+            {p.titulo ? ` · "${p.titulo}"` : ""} · {p.direitos.length} direito(s)
+          </>
+        ) : (
+          <>
+            <b className={p.efetiva === "completo" ? "text-slate-200" : "text-amber-300"}>{rotuloNivel[p.efetiva]}</b> · {origem}
+          </>
+        )}
+        {g.status === "no_grupo" && !p.aplicada && !p.erro && <span className="text-amber-300"> · o robô vai aplicar em instantes</span>}
+        {p.erro && <span className="block text-red-300">{p.erro}</span>}
+      </span>
+      <Botao pequeno onClick={aoEditar}>
+        Permissões
+      </Botao>
+    </div>
+  );
+}
+
+function ModalPermissoes({
+  membro,
+  grupo,
+  aoFechar,
+  aoSalvar,
+}: {
+  membro: MembroDetalhe;
+  grupo: GrupoDoMembro;
+  aoFechar: () => void;
+  aoSalvar: (m: MembroDetalhe) => void;
+}) {
+  const p = grupo.permissao!;
+  const [f, setF] = useState<DadosPermissao>({
+    nivel: p.nivel,
+    nivelAte: p.nivelAte,
+    administrador: p.administrador,
+    direitos: p.administrador ? p.direitos : ["can_delete_messages", "can_restrict_members", "can_pin_messages"],
+    titulo: p.titulo,
+  });
+  const { carregando, erro, executar } = useAcao();
+  // data/hora local para o campo (yyyy-MM-ddTHH:mm)
+  const local = (iso: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+  const opcoes: { valor: NivelPermissao | null; rotulo: string }[] = [
+    { valor: null, rotulo: `Seguir o plano (${rotuloNivel[p.doPlano]})` },
+    ...(Object.keys(rotuloNivel) as NivelPermissao[]).map((n) => ({ valor: n, rotulo: rotuloNivel[n] })),
+  ];
+
+  return (
+    <Modal
+      titulo={`Permissões em ${grupo.nome}`}
+      subtitulo={
+        <>
+          {membro.nome} · <BotaoGuia id="permissoes" rotulo="Como funciona?" />
+        </>
+      }
+      aoFechar={aoFechar}
+      largura="max-w-xl"
+    >
+      <div className="flex flex-col gap-4">
+        <Interruptor
+          ligado={f.administrador}
+          aoMudar={(administrador) => setF((v) => ({ ...v, administrador }))}
+          titulo="Administrador do grupo"
+          descricao="Ajuda a cuidar do grupo (ex.: moderador). O robô precisa ter a permissão “Adicionar administradores” no Telegram."
+        />
+        {f.administrador ? (
+          <>
+            <div>
+              <span className="text-xs font-medium text-slate-300">O que pode fazer</span>
+              <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                {direitosAdmin.map((d) => (
+                  <label key={d.valor} className="flex cursor-pointer items-center gap-2 rounded-xl border border-gv-line px-3 py-2 text-[13px] text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="accent-orange-500"
+                      checked={f.direitos.includes(d.valor)}
+                      onChange={() =>
+                        setF((v) => ({
+                          ...v,
+                          direitos: v.direitos.includes(d.valor) ? v.direitos.filter((x) => x !== d.valor) : [...v.direitos, d.valor],
+                        }))
+                      }
+                    />
+                    {d.rotulo}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <Campo rotulo="Título ao lado do nome" dica="Até 16 letras, sem emoji. Ex.: Moderador, Professor.">
+              <input
+                className={classeInput}
+                maxLength={16}
+                value={f.titulo ?? ""}
+                onChange={(e) => setF((v) => ({ ...v, titulo: e.target.value }))}
+              />
+            </Campo>
+          </>
+        ) : (
+          <>
+            <div>
+              <span className="text-xs font-medium text-slate-300">O que pode fazer no grupo</span>
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                {opcoes.map((o) => (
+                  <label key={o.valor ?? "plano"} className="flex cursor-pointer items-center gap-2 rounded-xl border border-gv-line px-3 py-2 text-[13px] text-slate-200">
+                    <input
+                      type="radio"
+                      className="accent-orange-500"
+                      checked={f.nivel === o.valor}
+                      onChange={() => setF((v) => ({ ...v, nivel: o.valor, nivelAte: o.valor ? v.nivelAte : null }))}
+                    />
+                    {o.rotulo}
+                  </label>
+                ))}
+              </div>
+            </div>
+            {f.nivel && (
+              <Campo rotulo="Até quando (opcional)" dica="Vazio = até você mudar. Depois do prazo volta ao que o plano dá.">
+                <input
+                  type="datetime-local"
+                  className={classeInput}
+                  value={local(f.nivelAte)}
+                  onChange={(e) => setF((v) => ({ ...v, nivelAte: e.target.value ? new Date(e.target.value).toISOString() : null }))}
+                />
+              </Campo>
+            )}
+          </>
+        )}
+        {grupo.status !== "no_grupo" && (
+          <p className="text-[12px] text-gv-muted">A pessoa ainda não está no grupo: o robô aplica quando ela entrar.</p>
+        )}
+      </div>
+      <div className="mt-4">
+        <MensagemErro texto={erro} />
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Botao onClick={aoFechar}>Cancelar</Botao>
+        <Botao
+          variante="primario"
+          carregando={carregando === "salvar"}
+          onClick={() =>
+            executar("salvar", async () => {
+              aoSalvar(await apiMembros.permissoes(membro.id, grupo.grupoId, f));
+            })
+          }
+        >
+          Salvar
+        </Botao>
+      </div>
+    </Modal>
   );
 }
 

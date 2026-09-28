@@ -7,6 +7,7 @@ import { Avatar, SeloSituacao } from "../../components/grupo-vip/Selos";
 import { Abas, CabecalhoPagina, Card, Vazio } from "../../components/grupo-vip/ui";
 import { formatar, haQuanto, linkWhatsapp } from "../../lib/grupo-vip";
 import { apiSuporte, type Chamado } from "../../lib/grupo-vip-financeiro";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Filtro = "aberto" | "respondido" | "resolvido";
 
@@ -37,6 +38,7 @@ function PaginaSuporte() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="suporte" />}
         titulo="Suporte"
         descricao="Os membros escrevem pela área do membro ou direto para o robô do Telegram. Sua resposta aparece na área do membro e também vai por mensagem (no Telegram, ele responde ali mesmo)."
       />

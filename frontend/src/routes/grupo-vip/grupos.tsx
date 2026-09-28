@@ -13,8 +13,11 @@ import {
   type DadosPlano,
   type Grupo,
   type Grupos,
+  type NivelPermissao,
   type Plano,
+  rotuloNivel,
 } from "../../lib/grupo-vip-membros";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Busca = { novo?: boolean };
 
@@ -46,6 +49,7 @@ function PaginaGrupos() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="grupo" />}
         titulo="Grupos e planos"
         descricao="Cadastre seus grupos e diga quais grupos cada plano libera. Quem paga um plano recebe acesso a todos os grupos dele."
       >
@@ -73,7 +77,8 @@ function PaginaGrupos() {
           <Link to="/grupo-vip/configuracoes" className="underline">
             Configurações
           </Link>{" "}
-          e informe o ID de cada grupo: o robô passa a colocar quem pagou e tirar quem não pagou sozinho.
+          e informe o ID de cada grupo: o robô passa a colocar quem pagou e tirar quem não pagou sozinho.{" "}
+          <BotaoGuia id="robo" rotulo="Como conectar o robô?" />
         </Dica>
       )}
 
@@ -125,7 +130,17 @@ function PaginaGrupos() {
       </div>
 
       <Card>
-        <TituloCard icone={Layers} acao={<Botao pequeno variante="primario" onClick={() => setPlano("novo")}><Plus className="size-3.5" /> Novo plano</Botao>}>
+        <TituloCard
+          icone={Layers}
+          acao={
+            <span className="flex items-center gap-3">
+              <BotaoGuia id="plano" />
+              <Botao pequeno variante="primario" onClick={() => setPlano("novo")}>
+                <Plus className="size-3.5" /> Novo plano
+              </Botao>
+            </span>
+          }
+        >
           Planos
         </TituloCard>
         <p className="mt-1 text-[12.5px] text-gv-muted">
@@ -245,7 +260,8 @@ function ModalGrupo({
               dica={
                 <>
                   Coloque o robô como <b>administrador</b> do grupo e escreva <code>/id</code> no grupo: o robô responde o
-                  número (ex.: -1001234567890). {dados.robo.conectado ? "" : "Primeiro conecte o robô em Configurações."}
+                  número (ex.: -1001234567890). {dados.robo.conectado ? "" : "Primeiro conecte o robô em Configurações."}{" "}
+                  <BotaoGuia id="robo-admin" rotulo="Ver o passo a passo" />
                 </>
               }
             >
@@ -275,7 +291,12 @@ function ModalGrupo({
         ) : (
           <Campo
             rotulo="Link de convite do grupo (opcional)"
-            dica="No WhatsApp: dados do grupo › Convidar via link. Se preencher, o membro entra sozinho pela área do membro; se deixar vazio, você adiciona cada pessoa."
+            dica={
+              <>
+                Se preencher, o membro entra sozinho pela área do membro; se deixar vazio, você adiciona cada pessoa.{" "}
+                <BotaoGuia id="grupo-whatsapp" rotulo="Onde acho o link?" />
+              </>
+            }
           >
             <input className={classeInput} value={f.linkConvite} onChange={muda("linkConvite")} placeholder="https://chat.whatsapp.com/..." />
           </Campo>
@@ -369,6 +390,7 @@ function ModalPlano({
     participaIndicacoes: plano?.participaIndicacoes ?? true,
     ativo: plano?.ativo ?? true,
     grupoIds: plano?.grupos.map((g) => g.id) ?? [],
+    permissoes: plano?.permissoes ?? {},
   });
   const [preco, setPreco] = useState(plano ? String(plano.preco).replace(".", ",") : "");
   const [salvando, setSalvando] = useState(false);
@@ -378,7 +400,12 @@ function ModalPlano({
     setF((v) => ({ ...v, grupoIds: v.grupoIds.includes(id) ? v.grupoIds.filter((x) => x !== id) : [...v.grupoIds, id] }));
 
   return (
-    <Modal titulo={plano ? "Editar plano" : "Novo plano"} aoFechar={aoFechar} largura="max-w-xl">
+    <Modal
+      titulo={plano ? "Editar plano" : "Novo plano"}
+      subtitulo={<BotaoGuia id="plano" rotulo="Passo a passo de como criar um plano" />}
+      aoFechar={aoFechar}
+      largura="max-w-xl"
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo rotulo="Nome *" className="sm:col-span-2">
           <input autoFocus className={classeInput} value={f.nome} onChange={(e) => setF((v) => ({ ...v, nome: e.target.value }))} />
@@ -414,6 +441,37 @@ function ModalPlano({
             ))}
           </div>
         </div>
+        {grupos.some((g) => g.plataforma === "telegram" && f.grupoIds.includes(g.id)) && (
+          <div className="sm:col-span-2">
+            <span className="text-xs font-medium text-slate-300">O que quem assina este plano pode fazer nos grupos do Telegram</span>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {grupos
+                .filter((g) => g.plataforma === "telegram" && f.grupoIds.includes(g.id))
+                .map((g) => (
+                  <div key={g.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gv-line px-3 py-2">
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-200">{g.nome}</span>
+                    <select
+                      className={`${classeInput} w-auto`}
+                      value={f.permissoes[g.id] ?? "completo"}
+                      onChange={(e) =>
+                        setF((v) => ({ ...v, permissoes: { ...v.permissoes, [g.id]: e.target.value as NivelPermissao } }))
+                      }
+                    >
+                      {(Object.keys(rotuloNivel) as NivelPermissao[]).map((n) => (
+                        <option key={n} value={n}>
+                          {rotuloNivel[n]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+            </div>
+            <p className="mt-1 text-[11.5px] text-gv-muted">
+              O robô aplica sozinho quando a pessoa entra. Ex.: plano Básico "Só leitura" e Premium "Tudo liberado". Só funciona com o robô como
+              administrador do grupo.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col gap-3 sm:col-span-2">
           <Interruptor
             ligado={f.participaIndicacoes}

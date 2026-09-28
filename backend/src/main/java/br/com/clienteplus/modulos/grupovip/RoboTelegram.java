@@ -18,12 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
 // O robô do Telegram "escutando": a cada 3 segundos pergunta ao Telegram o que
 // aconteceu (getUpdates) e reage:
 //
-//   /start <codigo>   no privado: liga a conta do Telegram ao membro e manda
-//                     os links de entrada dos grupos que ele pagou
-//   /grupos           no privado: manda os links de novo
-//   /livro <nome>     no privado: robô bibliotecário (Biblioteca.java); tocar
-//                     num livro da lista (callback_query) manda o arquivo
-//   outra mensagem    no privado: vai para o Suporte (conversa com a equipe)
+//   /start <codigo>   no privado: liga a conta do Telegram ao membro, manda
+//                     os links de entrada dos grupos que ele pagou e o menu
+//   resto do privado  menu com botões (Atendente.java): livros por nome,
+//                     autor, categoria e gênero, sugestões, grupos,
+//                     assinatura, indicação e Suporte (mensagem sem passo do
+//                     menu vai para a equipe, como antes)
+//   botão tocado      (callback_query) navega no menu ou manda o livro
 //   pedido de entrada aprova quem tem acesso, recusa quem não tem
 //   saiu / entrou     atualiza a situação do membro no grupo e manda as
 //                     boas-vindas no grupo (se configuradas)
@@ -56,10 +57,10 @@ public class RoboTelegram {
     Enquetes enquetes;
 
     @Inject
-    Suporte suporte;
+    Atendente atendente;
 
     @Inject
-    Biblioteca biblioteca;
+    Permissoes permissoes;
 
     public record GrupoDetectado(String chatId, String titulo, boolean administrador, OffsetDateTime visto) {}
 
@@ -135,7 +136,7 @@ public class RoboTelegram {
         if (u.has("chat_join_request")) pedidoDeEntrada(config, u.path("chat_join_request"));
         if (u.has("chat_member")) mudancaNoGrupo(config, u.path("chat_member"));
         if (u.has("poll")) enquetes.atualizarVotos(storeId, u.path("poll"));
-        if (u.has("callback_query")) biblioteca.tocou(config, u.path("callback_query"));
+        if (u.has("callback_query")) atendente.toque(config, u.path("callback_query"));
     }
 
     private void mensagem(Config config, JsonNode msg) {
@@ -173,50 +174,24 @@ public class RoboTelegram {
                     : "Este link de dono não vale mais. Abra a Biblioteca no painel e toque de novo em Conectar meu Telegram.");
             return;
         }
-        if (texto.startsWith("/start")) {
-            String codigo = texto.substring("/start".length()).trim();
-            iniciar(config, msg.path("from"), codigo);
+        String codigo = texto.startsWith("/start ") ? texto.substring("/start".length()).trim() : "";
+        if (!codigo.isEmpty()) {
+            conectar(config, msg.path("from"), codigo);
             return;
         }
-        if (texto.equals("/grupos") || texto.equals("/links")) {
-            iniciar(config, msg.path("from"), "");
-            return;
-        }
-        Membro m = Membro.<Membro>find("storeId = ?1 and telegramId = ?2", config.storeId, usuario).firstResult();
-        if (m == null) {
-            telegram.enviarTexto(config.telegramBotToken, usuario,
-                    "Olá! Eu cuido do acesso aos grupos do <b>" + Telegram.html(config.nomeNegocio) + "</b>.\n"
-                            + "Para eu te reconhecer, abra sua área de membro e toque em <b>Conectar Telegram</b>.");
-            return;
-        }
-        String comando = texto.split("\\s+", 2)[0].replaceAll("@.*$", "").toLowerCase();
-        if (comando.equals("/livro") || comando.equals("/livros") || comando.equals("/buscar")) {
-            biblioteca.pedir(config, m, usuario, texto.contains(" ") ? texto.substring(texto.indexOf(' ') + 1) : "");
-            return;
-        }
-        if (texto.isEmpty() || texto.startsWith("/")) {
-            telegram.enviarTexto(config.telegramBotToken, usuario, "Para falar com a equipe, é só escrever sua mensagem aqui"
-                    + " (por enquanto eu só entendo texto).\n\n/grupos — receber os links dos seus grupos"
-                    + (Livro.count("storeId", config.storeId) > 0 ? "\n/livro nome — pedir um livro da biblioteca" : ""));
-            return;
-        }
-        // Mensagem de texto: vai para o Suporte.
-        if (suporte.doTelegram(m.cliente, texto)) {
-            telegram.enviarTexto(config.telegramBotToken, usuario,
-                    "Recebemos sua mensagem ✅ A equipe responde por aqui mesmo, é só aguardar.");
-        }
+        // Menu, livros, sugestões, suporte...
+        atendente.mensagem(config, msg);
     }
 
-    // /start <codigo>: liga o Telegram ao membro e manda os links.
-    private void iniciar(Config config, JsonNode de, String codigo) {
+    // /start <codigo>: liga o Telegram ao membro, manda os links e o menu.
+    private void conectar(Config config, JsonNode de, String codigo) {
         long usuario = de.path("id").asLong();
         String token = config.telegramBotToken;
-        Membro m = codigo.isEmpty()
-                ? Membro.<Membro>find("storeId = ?1 and telegramId = ?2", config.storeId, usuario).firstResult()
-                : Membro.<Membro>find("storeId = ?1 and codigo = ?2", config.storeId, codigo.toUpperCase()).firstResult();
+        Membro m = Membro.<Membro>find("storeId = ?1 and codigo = ?2", config.storeId, codigo.toUpperCase()).firstResult();
         if (m == null) {
-            telegram.enviarTexto(token, usuario, "Olá! Não encontrei seu cadastro. Abra sua área de membro e toque em "
-                    + "<b>Conectar Telegram</b>.");
+            telegram.enviarTexto(token, usuario, "Não encontrei seu cadastro com este link 😕 Abra sua área de membro e toque"
+                    + " de novo em <b>Conectar Telegram</b>.");
+            atendente.enviar(config, usuario, atendente.menu(config, null));
             return;
         }
         // Esta conta do Telegram estava ligada a outro membro? Desliga.
@@ -224,42 +199,10 @@ public class RoboTelegram {
         m.telegramId = usuario;
         if (de.hasNonNull("username")) m.telegramUsuario = de.path("username").asText();
 
-        Membros.Base base = membros.base(config.storeId);
-        Membros.Estado e = base.estado(m.cliente.id);
-        StringBuilder r = new StringBuilder("Olá, <b>")
-                .append(Telegram.html(Membros.primeiroNome(m.cliente.nome)))
-                .append("</b>! Seu Telegram está conectado ao <b>")
-                .append(Telegram.html(config.nomeNegocio))
-                .append("</b>. Por aqui você recebe seus links e avisos.");
-        if (!e.temAcesso()) {
-            r.append("\n\nSeu acesso ainda não está liberado. Veja sua situação e pague por aqui:\n")
-                    .append(endereco.areaMembro(m.codigo));
-        } else {
-            r.append("\n\n<b>Seus grupos:</b>");
-            for (UUID grupoId : e.gruposComDireito()) {
-                Grupo g = base.grupoPorId.get(grupoId);
-                r.append("\n\n• <b>").append(Telegram.html(g.nome)).append("</b>\n");
-                if (g.automatico(config)) {
-                    Acesso a = Acesso.<Acesso>find("grupo = ?1 and cliente = ?2", g, m.cliente).firstResult();
-                    if (a != null && Acesso.NO_GRUPO.equals(a.status)) {
-                        r.append("Você já está no grupo ✅");
-                    } else {
-                        String link = a != null && Acesso.CONVIDADO.equals(a.status) && a.conviteLink != null
-                                ? a.conviteLink
-                                : controle.convidarNoTelegram(config, g, m.cliente, m, true, false);
-                        r.append("Entre por aqui: ").append(link);
-                    }
-                } else if (g.linkConvite != null) {
-                    r.append("Entre por aqui: ").append(g.linkConvite);
-                } else {
-                    r.append("A equipe vai te adicionar em breve.");
-                }
-            }
-        }
-        if (e.temAcesso() && Livro.count("storeId", config.storeId) > 0) {
-            r.append("\n\n📚 Para pedir um livro da biblioteca, escreva <b>/livro</b> e o nome. Ex.: <code>/livro dom casmurro</code>");
-        }
-        telegram.enviarTexto(token, usuario, r.toString());
+        telegram.enviarTexto(token, usuario, "Olá, <b>" + Telegram.html(Membros.primeiroNome(m.cliente.nome))
+                + "</b>! Seu Telegram está conectado ao <b>" + Telegram.html(config.nomeNegocio)
+                + "</b>. Por aqui você recebe seus links e avisos.\n\n" + atendente.textoGrupos(config, m));
+        atendente.enviar(config, usuario, atendente.menu(config, m));
     }
 
     private void roboNoGrupo(Config config, JsonNode mudanca) {
@@ -324,6 +267,7 @@ public class RoboTelegram {
         ControleAcesso.marcar(acesso, Acesso.NO_GRUPO);
         acesso.entrouEm = OffsetDateTime.now();
         ControleAcesso.registrar(g, c, "entrou", true, "Entrada aprovada pelo robô");
+        permissoes.aplicarUm(config, g, c); // ex.: plano "só leitura"
     }
 
     // Alguém saiu, foi tirado ou entrou no grupo.
@@ -343,6 +287,7 @@ public class RoboTelegram {
         Acesso a = ControleAcesso.acesso(g, m.cliente);
         boolean saiu = ("left".equals(novo) || "kicked".equals(novo)) && DENTRO.contains(antigo);
         boolean entrou = DENTRO.contains(novo) && !DENTRO.contains(antigo);
+        if (saiu) Permissoes.saiu(g, m.cliente);
         if (saiu && !Acesso.REMOVIDO.equals(a.status)) {
             ControleAcesso.marcar(a, Acesso.REMOVIDO);
             ControleAcesso.registrar(g, m.cliente, "removido", true,
@@ -352,5 +297,6 @@ public class RoboTelegram {
             a.entrouEm = OffsetDateTime.now();
             ControleAcesso.registrar(g, m.cliente, "entrou", true, "Entrou no grupo");
         }
+        if (entrou) permissoes.aplicarUm(config, g, m.cliente);
     }
 }

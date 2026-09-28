@@ -42,6 +42,10 @@ create table grupo_vip_config (
   telegram_dono_id bigint,                 -- Telegram do dono (recebe as mensagens de apoio da cópia entre grupos)
   telegram_dono_codigo text,               -- código do link que liga o Telegram do dono (/start dono_<codigo>)
   google_api_key text,                     -- SEGREDO: chave do Google para ler pastas públicas do Drive (Biblioteca)
+  google_conta_servico text,               -- SEGREDO: arquivo JSON da conta de serviço do Google (lê pastas PRIVADAS do Drive)
+  completar_livros boolean not null default true, -- busca autor, gênero, capa e resumo dos livros no Google Books
+  biblioteca_tipo text not null default 'livros' check (biblioteca_tipo in ('livros', 'materiais')), -- livros (autor, gênero, Google Books) ou materiais (apostilas, vídeos, áudios, planilhas...)
+  atrasado_somente_leitura boolean not null default false, -- Telegram: quem está atrasado (dentro da tolerância) só lê os grupos
   created_at timestamp with time zone not null default now()
 );
 
@@ -85,11 +89,14 @@ create table grupo_vip_telegram_topicos (
 );
 
 -- Quais grupos cada plano do Cliente Plus libera (um plano pode liberar vários).
+-- permissao: o que quem assina o plano pode fazer no grupo (só Telegram com o
+-- robô): completo | sem_midia (só texto) | leitura (só lê)
 create table grupo_vip_plano_grupos (
   id uuid default gen_random_uuid() primary key,
   store_id uuid not null,
   plano_id uuid not null,
   grupo_id uuid not null references grupo_vip_grupos (id) on delete cascade,
+  permissao text not null default 'completo' check (permissao in ('completo', 'sem_midia', 'leitura')),
   unique (plano_id, grupo_id)
 );
 
@@ -389,6 +396,17 @@ create table grupo_vip_livros (
   md5 text,
   telegram_file_id text,
   pedidos integer not null default 0,
+  -- Dados do livro (busca por autor, categoria e gênero no robô). categoria =
+  -- subpasta do Drive; autor/título também saem do nome do arquivo ("Autor -
+  -- Título"); o resto vem do Google Books (Catalogador.java).
+  --   dados_status: pendente (ainda não buscou) | ok | nao_encontrado | manual (o dono editou)
+  autor text,
+  categoria text,
+  genero text,
+  sinopse text,
+  capa_url text,
+  ano integer,
+  dados_status text not null default 'pendente' check (dados_status in ('pendente', 'ok', 'nao_encontrado', 'manual')),
   created_at timestamp with time zone not null default now(),
   unique (grupo_id, md5)
 );
@@ -454,3 +472,75 @@ create table grupo_vip_livro_pedidos (
 );
 
 create index grupo_vip_livro_pedidos_idx on grupo_vip_livro_pedidos (store_id, cliente_id, momento);
+
+-- Links temporários para ler ou baixar um livro (os que não vão como arquivo
+-- pelo Telegram, ex.: acima de 50 MB). Cada link é de UMA pessoa e expira;
+-- na hora do clique o sistema confere se ela ainda tem acesso ao livro (quem
+-- cancelou ou passou da tolerância não abre mais). O endereço do Drive nunca
+-- aparece: o sistema busca o arquivo e entrega.
+-- RLS: só a Edge Function (service role) usa.
+create table grupo_vip_livro_links (
+  id uuid default gen_random_uuid() primary key,
+  store_id uuid not null,
+  token text not null unique,
+  livro_id uuid not null references grupo_vip_livros (id) on delete cascade,
+  cliente_id uuid not null,
+  expira_em timestamp with time zone not null,
+  aberturas integer not null default 0,
+  created_at timestamp with time zone not null default now()
+);
+
+-- Livros que os membros pediram para adicionar (menu do robô › Sugerir um
+-- livro). Quando o livro entra na biblioteca, o robô avisa quem pediu.
+--   status: pendente | adicionado | recusado
+create table grupo_vip_livro_sugestoes (
+  id uuid default gen_random_uuid() primary key,
+  store_id uuid not null,
+  cliente_id uuid not null,
+  titulo text not null,
+  autor text,
+  status text not null default 'pendente' check (status in ('pendente', 'adicionado', 'recusado')),
+  livro_id uuid references grupo_vip_livros (id) on delete set null,
+  created_at timestamp with time zone not null default now(),
+  respondida_em timestamp with time zone
+);
+
+create index grupo_vip_livro_sugestoes_idx on grupo_vip_livro_sugestoes (store_id, status);
+
+-- Em que passo do menu cada pessoa está na conversa com o robô (privado).
+--   etapa: o que o robô espera a pessoa escrever (busca_nome | busca_autor |
+--          sugestao | suporte); vale por alguns minutos
+--   lista: última lista de livros mostrada, para as páginas (ex.: "autor|machado")
+-- RLS: só a Edge Function do robô (service role) usa.
+create table grupo_vip_robo_conversas (
+  id uuid default gen_random_uuid() primary key,
+  store_id uuid not null,
+  telegram_id bigint not null,
+  etapa text,
+  lista text,
+  atualizado_em timestamp with time zone not null default now(),
+  unique (store_id, telegram_id)
+);
+
+-- Permissões de cada membro em cada grupo do Telegram com o robô.
+-- Sem linha (ou nivel null) = segue o plano (grupo_vip_plano_grupos.permissao).
+--   nivel: completo | sem_midia | leitura (escolhido pelo dono); nivel_ate = até quando
+--   administrador + direitos (lista separada por vírgula, nomes da API do
+--   Telegram, ex.: can_delete_messages) + titulo (aparece ao lado do nome)
+--   aplicado: o que o robô já aplicou no Telegram (evita repetir); tentado_em
+--   e erro: última tentativa
+create table grupo_vip_permissoes (
+  id uuid default gen_random_uuid() primary key,
+  store_id uuid not null,
+  grupo_id uuid not null references grupo_vip_grupos (id) on delete cascade,
+  cliente_id uuid not null,
+  nivel text check (nivel in ('completo', 'sem_midia', 'leitura')),
+  nivel_ate timestamp with time zone,
+  administrador boolean not null default false,
+  direitos text not null default '',
+  titulo text,
+  aplicado text,
+  tentado_em timestamp with time zone,
+  erro text,
+  unique (grupo_id, cliente_id)
+);

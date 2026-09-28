@@ -81,17 +81,18 @@ public class EnvioEmMassa {
     // ---------- 1. Ler a pasta do Drive ----------
 
     private void listarPasta(UUID id) {
-        record Pedido(String chave, String pastaId) {}
+        record Pedido(String chave, String conta, String pastaId) {}
         Pedido p = QuarkusTransaction.requiringNew().call(() -> {
             Importacao imp = Importacao.findById(id);
-            return new Pedido(membros.config(imp.storeId).googleApiKey, GoogleDrive.idDaPasta(imp.pastaUrl));
+            Config config = membros.config(imp.storeId);
+            return new Pedido(config.googleApiKey, config.googleContaServico, GoogleDrive.idDaPasta(imp.pastaUrl));
         });
         GoogleDrive.Pasta pasta;
         List<GoogleDrive.ArquivoDrive> arquivos;
         try {
-            if (p.chave() == null || p.chave().isBlank()) throw new GoogleDrive.ErroDrive("Cadastre a chave do Google", false);
-            pasta = drive.pasta(p.chave(), p.pastaId());
-            arquivos = drive.listar(p.chave(), p.pastaId(), Biblioteca.MAX_ARQUIVOS);
+            GoogleDrive.Credencial c = drive.credencial(p.chave(), p.conta());
+            pasta = drive.pasta(c, p.pastaId());
+            arquivos = drive.listar(c, p.pastaId(), Biblioteca.MAX_ARQUIVOS);
         } catch (GoogleDrive.ErroDrive e) {
             QuarkusTransaction.requiringNew().run(() -> {
                 Importacao imp = Importacao.findById(id);
@@ -121,17 +122,15 @@ public class EnvioEmMassa {
                 .sorted(Comparator.comparing(GoogleDrive.ArquivoDrive::pasta).thenComparing(GoogleDrive.ArquivoDrive::nome))
                 .toList();
         Map<String, Livro> nestaPasta = new HashMap<>(); // o mesmo arquivo repetido na pasta
+        List<String> aceitas = Biblioteca.extensoes(Config.<Config>find("storeId", imp.storeId).firstResult());
         int n = 0;
         for (GoogleDrive.ArquivoDrive a : ordem) {
             ImportacaoItem item = biblioteca.novoItem(imp, a.pasta().isEmpty() ? a.nome() : a.pasta() + " / " + a.nome(), a.tamanho(), n++);
             String ext = Biblioteca.extensao(a.nome());
             String chave = a.md5() != null ? a.md5() : "drive:" + a.id();
-            if (!Biblioteca.EXTENSOES.contains(ext)) {
+            if (!aceitas.contains(ext)) {
                 item.status = ImportacaoItem.PULADO;
                 item.erro = "Formato não aceito (." + ext + ")";
-            } else if (a.tamanho() > Biblioteca.TAMANHO_MAXIMO) {
-                item.status = ImportacaoItem.GRANDE_DEMAIS;
-                item.erro = "Acima de 50 MB (limite do robô do Telegram)";
             } else if (nestaPasta.containsKey(chave)) {
                 item.status = ImportacaoItem.PULADO;
                 item.erro = "Arquivo repetido na pasta";
@@ -142,13 +141,20 @@ public class EnvioEmMassa {
                         : Livro.<Livro>find("grupo = ?1 and driveId = ?2", imp.grupo, a.id()).firstResult();
                 boolean novo = l == null;
                 if (novo) {
-                    l = biblioteca.novoLivro(imp, a.nome(), a.tamanho(), a.md5());
+                    l = biblioteca.novoLivro(imp, a.nome(), a.tamanho(), a.md5(), a.pasta());
                     l.origem = Livro.DRIVE;
                     l.driveId = a.id();
                     l.persist();
                 }
                 nestaPasta.put(chave, l);
-                biblioteca.destinoDoItem(imp, item, l, novo);
+                if (a.tamanho() > Biblioteca.TAMANHO_MAXIMO) {
+                    // não cabe no Telegram: fica na biblioteca e o robô entrega um link temporário
+                    item.livro = l;
+                    item.status = ImportacaoItem.GRANDE_DEMAIS;
+                    item.erro = "Acima de 50 MB: não vai para o grupo, mas o robô entrega um link temporário";
+                } else {
+                    biblioteca.destinoDoItem(imp, item, l, novo);
+                }
             }
             item.persist();
         }
@@ -298,12 +304,13 @@ public class EnvioEmMassa {
         Livro l = new Livro();
         l.storeId = grupo.storeId;
         l.grupo = grupo;
-        l.titulo = Biblioteca.titulo(nome);
         l.arquivoNome = nome;
         l.tamanho = tamanho;
         l.origem = Livro.TELEGRAM;
         l.md5 = chave;
         l.telegramFileId = fileId;
+        Config config = Config.<Config>find("storeId", grupo.storeId).firstResult();
+        Catalogador.preparar(l, null, config != null && config.materiais());
         return l;
     }
 
@@ -324,7 +331,7 @@ public class EnvioEmMassa {
     // ---------- 2. Postar o próximo arquivo ----------
 
     // origemChat/origemMensagem: cópia entre grupos (copyMessage)
-    private record Envio(UUID itemId, UUID livroId, String token, String chaveGoogle, String chat, Long topico, boolean proteger,
+    private record Envio(UUID itemId, UUID livroId, String token, String chaveGoogle, String contaGoogle, String chat, Long topico, boolean proteger,
                          String fileId, String origem, String driveId, String arquivoUrl, String nome, String legenda,
                          String origemChat, Long origemMensagem) {}
 
@@ -351,17 +358,17 @@ public class EnvioEmMassa {
                     imp.erro = "O robô não está mais no grupo de origem: confira e continue";
                     return null;
                 }
-                return new Envio(item.id, l != null ? l.id : null, config.telegramBotToken, null, imp.grupo.telegramChatId, topico,
+                return new Envio(item.id, l != null ? l.id : null, config.telegramBotToken, null, null, imp.grupo.telegramChatId, topico,
                         imp.grupo.protegerConteudo, null, null, null, null, item.arquivoNome, null,
                         imp.origemGrupo.telegramChatId, item.origemMensagemId);
             }
             if (l == null) { // livro excluído enquanto estava na fila
                 item.status = ImportacaoItem.PULADO;
-                item.erro = "Livro excluído da biblioteca";
+                item.erro = "Arquivo excluído da biblioteca";
                 return null;
             }
             String legenda = "📚 <b>" + Telegram.html(l.titulo) + "</b>";
-            return new Envio(item.id, l.id, config.telegramBotToken, config.googleApiKey, imp.grupo.telegramChatId,
+            return new Envio(item.id, l.id, config.telegramBotToken, config.googleApiKey, config.googleContaServico, imp.grupo.telegramChatId,
                     topico, imp.grupo.protegerConteudo, l.telegramFileId, l.origem,
                     l.driveId, l.arquivoUrl, l.arquivoNome, legenda, null, null);
         });
@@ -377,7 +384,7 @@ public class EnvioEmMassa {
                 msg = JsonNodeFactory.instance.objectNode().put("message_id", novo);
             } else msg = e.fileId() != null
                     ? telegram.enviarDocumentoPorId(e.token(), e.chat(), e.fileId(), e.legenda(), opcoes)
-                    : biblioteca.enviarArquivo(e.token(), e.chaveGoogle(), e.chat(), e.origem(), e.driveId(), e.arquivoUrl(),
+                    : biblioteca.enviarArquivo(e.token(), e.chaveGoogle(), e.contaGoogle(), e.chat(), e.origem(), e.driveId(), e.arquivoUrl(),
                             e.nome(), e.legenda(), opcoes);
         } catch (Telegram.ErroTelegram ex) {
             erro = ex.getMessage();

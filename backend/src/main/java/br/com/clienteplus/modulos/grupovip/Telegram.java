@@ -311,6 +311,8 @@ public class Telegram {
         p.put("chat_id", chatId);
         p.put("caption", legenda(legendaHtml));
         p.put("parse_mode", "HTML");
+        // vídeo, foto e áudio também vão como arquivo (o file_id fica em "document")
+        p.put("disable_content_type_detection", true);
         aplicar(p, o);
         return enviarArquivo(token, "sendDocument", p, "document", arquivo, nomeArquivo);
     }
@@ -359,6 +361,88 @@ public class Telegram {
                 .map(e -> List.of(Map.of("text", e.texto(), "callback_data", e.dados())))
                 .toList()));
         chamar(token, "sendMessage", p);
+    }
+
+    // ---------- Menus do robô (Atendente) ----------
+
+    // Botão de um menu: avisa o robô (dados) ou abre um link (url).
+    public record Tecla(String texto, String dados, String url) {
+        public static Tecla acao(String texto, String dados) {
+            return new Tecla(texto, dados, null);
+        }
+
+        public static Tecla link(String texto, String url) {
+            return new Tecla(texto, null, url);
+        }
+    }
+
+    // Mensagem com botões em linhas. Devolve o id da mensagem.
+    public long enviarMenu(String token, Object chatId, String textoHtml, List<List<Tecla>> linhas) {
+        return comLinks(textoHtml, linhas, (texto, teclas) -> {
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("chat_id", chatId);
+            p.put("text", texto);
+            p.put("parse_mode", "HTML");
+            p.put("link_preview_options", Map.of("is_disabled", true));
+            if (!teclas.isEmpty()) p.put("reply_markup", Map.of("inline_keyboard", tecladoMenu(teclas)));
+            return chamar(token, "sendMessage", p);
+        }).path("message_id").asLong();
+    }
+
+    // Troca o texto e os botões de uma mensagem do robô (navegar no menu sem
+    // encher a conversa de mensagens).
+    public void editarMenu(String token, Object chatId, long mensagem, String textoHtml, List<List<Tecla>> linhas) {
+        comLinks(textoHtml, linhas, (texto, teclas) -> {
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("chat_id", chatId);
+            p.put("message_id", mensagem);
+            p.put("text", texto);
+            p.put("parse_mode", "HTML");
+            p.put("link_preview_options", Map.of("is_disabled", true));
+            p.put("reply_markup", Map.of("inline_keyboard", tecladoMenu(teclas)));
+            return chamar(token, "editMessageText", p);
+        });
+    }
+
+    // Se o Telegram recusar um botão de link (ex.: endereço local do
+    // laboratório), manda sem os botões de link e com os links no texto.
+    private JsonNode comLinks(String textoHtml, List<List<Tecla>> linhas,
+                              java.util.function.BiFunction<String, List<List<Tecla>>, JsonNode> envio) {
+        try {
+            return envio.apply(textoHtml, linhas);
+        } catch (ErroTelegram e) {
+            String t = e.original.toLowerCase();
+            boolean temLink = linhas.stream().flatMap(List::stream).anyMatch(k -> k.url() != null);
+            if (!temLink || !(t.contains("button") || t.contains("http url") || t.contains("reply markup"))) throw e;
+            StringBuilder texto = new StringBuilder(textoHtml);
+            List<List<Tecla>> semLinks = new ArrayList<>();
+            for (List<Tecla> linha : linhas) {
+                List<Tecla> resto = new ArrayList<>();
+                for (Tecla k : linha) {
+                    if (k.url() != null) texto.append("\n\n").append(html(k.texto())).append(": ").append(k.url());
+                    else resto.add(k);
+                }
+                if (!resto.isEmpty()) semLinks.add(resto);
+            }
+            return envio.apply(texto.toString(), semLinks);
+        }
+    }
+
+    private static List<List<Map<String, String>>> tecladoMenu(List<List<Tecla>> linhas) {
+        return linhas.stream()
+                .map(linha -> linha.stream()
+                        .map(k -> k.url() != null
+                                ? Map.of("text", k.texto(), "url", k.url())
+                                : Map.of("text", k.texto(), "callback_data", k.dados()))
+                        .toList())
+                .toList();
+    }
+
+    // Comandos que aparecem no botão "Menu" da conversa com o robô.
+    public void definirComandos(String token, Map<String, String> comandos) {
+        chamar(token, "setMyCommands", Map.of("commands", comandos.entrySet().stream()
+                .map(c -> Map.of("command", c.getKey(), "description", c.getValue()))
+                .toList()));
     }
 
     // Tira o "carregando" do botão tocado (e mostra um aviso rápido, se houver).
@@ -462,6 +546,49 @@ public class Telegram {
         p.put("permissions", permissoes);
         p.put("use_independent_chat_permissions", true);
         chamar(token, "setChatPermissions", p);
+    }
+
+    // Permissões de um membro (restrictChatMember). "Tudo liberado" é
+    // limitado pelo que o grupo permite a todos.
+    //   completo: tudo | sem_midia: só texto | leitura: só lê
+    public void restringir(String token, Object chatId, long usuario, String nivel) {
+        Map<String, Object> permissoes = new LinkedHashMap<>(permissoesDeEnvio(!"leitura".equals(nivel)));
+        if ("sem_midia".equals(nivel)) {
+            for (String k : List.of("can_send_audios", "can_send_documents", "can_send_photos", "can_send_videos",
+                    "can_send_video_notes", "can_send_voice_notes", "can_send_polls", "can_send_other_messages",
+                    "can_add_web_page_previews")) {
+                permissoes.put(k, false);
+            }
+        }
+        boolean outras = !"leitura".equals(nivel);
+        for (String k : List.of("can_invite_users", "can_pin_messages", "can_change_info", "can_manage_topics")) {
+            permissoes.put(k, outras);
+        }
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("chat_id", chatId);
+        p.put("user_id", usuario);
+        p.put("permissions", permissoes);
+        p.put("use_independent_chat_permissions", true);
+        chamar(token, "restrictChatMember", p);
+    }
+
+    // Torna administrador com os direitos escolhidos (nomes da API, ex.:
+    // can_delete_messages). Sem direitos = deixa de ser administrador.
+    public void promover(String token, Object chatId, long usuario, java.util.Collection<String> direitos) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("chat_id", chatId);
+        p.put("user_id", usuario);
+        for (String d : List.of("can_manage_chat", "can_delete_messages", "can_restrict_members", "can_pin_messages",
+                "can_invite_users", "can_change_info", "can_manage_topics", "can_manage_video_chats", "can_promote_members")) {
+            p.put(d, !direitos.isEmpty() && ("can_manage_chat".equals(d) || direitos.contains(d)));
+        }
+        chamar(token, "promoteChatMember", p);
+    }
+
+    // Título que aparece ao lado do nome do administrador (até 16 letras, sem emoji).
+    public void tituloAdministrador(String token, Object chatId, long usuario, String titulo) {
+        chamar(token, "setChatAdministratorCustomTitle",
+                Map.of("chat_id", chatId, "user_id", usuario, "custom_title", titulo == null ? "" : titulo));
     }
 
     private static Map<String, Object> permissoesDeEnvio(boolean pode) {

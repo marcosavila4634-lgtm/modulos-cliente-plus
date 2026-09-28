@@ -14,6 +14,7 @@ import {
   type PublicoAnuncio,
   type TipoAnuncio,
 } from "../../lib/grupo-vip-conteudos";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 // Anúncios: um recado para um público de membros (vai pela caixa de saída) e,
 // se quiser, também postado nos grupos.
@@ -72,6 +73,7 @@ function PaginaAnuncios() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="anuncios" />}
         titulo="Anúncios"
         descricao="Mande um recado para todos ou para um grupo de membros. Quem conversa com o robô recebe pelo Telegram na hora; os demais ficam na caixa de saída do WhatsApp."
       />

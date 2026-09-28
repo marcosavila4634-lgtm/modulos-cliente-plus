@@ -14,6 +14,7 @@ import {
   type Situacao,
 } from "../../../lib/grupo-vip";
 import { apiMembros } from "../../../lib/grupo-vip-membros";
+import { BotaoGuia } from "../../../components/grupo-vip/Ajuda";
 
 type Filtro = "todos" | Situacao;
 type Busca = { busca?: string; filtro?: Filtro; novo?: boolean };
@@ -76,6 +77,7 @@ function PaginaMembros() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="membro" />}
         titulo="Membros"
         descricao={`${lista.contagem.todos} cadastrados · ${
           lista.contagem.em_dia + lista.contagem.vencendo + lista.contagem.atrasado + lista.contagem.cancelando

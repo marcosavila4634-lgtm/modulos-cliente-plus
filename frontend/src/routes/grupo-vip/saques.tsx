@@ -6,6 +6,7 @@ import { Avatar } from "../../components/grupo-vip/Selos";
 import { Abas, CabecalhoPagina, Card, CardNumero, cabecalhoTabela, Dica, TituloCard, Vazio } from "../../components/grupo-vip/ui";
 import { baixarCsv, formatar } from "../../lib/grupo-vip";
 import { apiFinanceiro, type Saque, type Saques } from "../../lib/grupo-vip-financeiro";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 // Saques de comissão pedidos pelos membros e o ranking de quem mais indica.
 // SIMULAÇÃO do Cliente Plus: no projeto principal, isto é o menu "Saques".
@@ -35,6 +36,7 @@ function PaginaSaques() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="saques" />}
         titulo="Saques e indicações"
         descricao={`Cada membro tem um link de indicação. Quem indica ganha ${d.percentuais[0]}% (nível 1), ${d.percentuais[1]}% (nível 2) e ${d.percentuais[2]}% (nível 3) de cada pagamento, enquanto o indicado continuar pagando.`}
       />

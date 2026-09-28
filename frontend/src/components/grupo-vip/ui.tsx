@@ -80,11 +80,25 @@ export function SeletorPeriodo({ valor, aoMudar }: { valor: number; aoMudar: (me
 }
 
 // Cabeçalho padrão das telas: título, descrição e ações à direita.
-export function CabecalhoPagina({ titulo, descricao, children }: { titulo: string; descricao?: ReactNode; children?: ReactNode }) {
+// guia: o "Como fazer?" da tela (<BotaoGuia id="..." />), ao lado do título.
+export function CabecalhoPagina({
+  titulo,
+  descricao,
+  guia,
+  children,
+}: {
+  titulo: string;
+  descricao?: ReactNode;
+  guia?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="font-poppins text-[26px] font-bold text-white md:text-[28px]">{titulo}</h1>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="font-poppins text-[26px] font-bold text-white md:text-[28px]">{titulo}</h1>
+          {guia}
+        </div>
         {descricao && <p className="mt-1 max-w-3xl text-sm text-gv-muted">{descricao}</p>}
       </div>
       {children && <div className="flex flex-wrap items-center gap-2 print:hidden">{children}</div>}

@@ -25,6 +25,12 @@ alter table grupo_vip_chamados
   add constraint grupo_vip_chamados_cliente_fk foreign key (cliente_id) references cp_clientes (id);
 alter table grupo_vip_livro_pedidos
   add constraint grupo_vip_livro_pedidos_cliente_fk foreign key (cliente_id) references cp_clientes (id);
+alter table grupo_vip_livro_links
+  add constraint grupo_vip_livro_links_cliente_fk foreign key (cliente_id) references cp_clientes (id);
+alter table grupo_vip_livro_sugestoes
+  add constraint grupo_vip_livro_sugestoes_cliente_fk foreign key (cliente_id) references cp_clientes (id);
+alter table grupo_vip_permissoes
+  add constraint grupo_vip_permissoes_cliente_fk foreign key (cliente_id) references cp_clientes (id);
 
 -- 2) Saques de comissão pedidos pelos clientes. No Cliente Plus real isso já
 --    existe (menu "Saques"); aqui é só uma imitação para a tela funcionar.

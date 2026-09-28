@@ -30,6 +30,8 @@ import java.util.UUID;
 //   3. Conteúdos agendados cuja hora chegou.
 //   4. Envio das mensagens pendentes do Telegram.
 //   5. Trava/libera os grupos do Telegram no horário escolhido.
+//   6. Permissões dos membros no Telegram (plano, atraso, escolhidas na ficha).
+//   7. Sugestões de livros atendidas por livros que acabaram de chegar.
 @ApplicationScoped
 public class Automacoes {
 
@@ -47,6 +49,12 @@ public class Automacoes {
 
     @Inject
     GestaoTelegram gestao;
+
+    @Inject
+    Permissoes permissoes;
+
+    @Inject
+    Sugestoes sugestoes;
 
     public record Padrao(String titulo, String descricao, int dias, String texto) {}
 
@@ -138,6 +146,8 @@ public class Automacoes {
         int enviadas = mensageiro.enviarPendentes(config);
         List<String> erros = new ArrayList<>(s.erros());
         erros.addAll(gestao.aplicarHorarios(config));
+        erros.addAll(permissoes.aplicar(config));
+        sugestoes.conferir(config);
         return new Resultado(s.convidados(), s.removidos(), criadas, enviadas, publicados, lives, erros);
     }
 

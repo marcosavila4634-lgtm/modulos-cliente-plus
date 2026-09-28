@@ -59,6 +59,9 @@ public class MembrosResource {
     Indicacoes indicacoes;
 
     @Inject
+    Permissoes permissoes;
+
+    @Inject
     EnderecoPublico endereco;
 
     @GET
@@ -173,6 +176,17 @@ public class MembrosResource {
         return detalhe(membros.cliente(storeId, id));
     }
 
+    // Permissões num grupo do Telegram (administrador, título, só texto, só
+    // leitura). O robô aplica na hora; se o Telegram recusar, o erro aparece
+    // na ficha.
+    @PUT
+    @Path("/{id}/permissoes/{grupoId}")
+    @Transactional
+    public MembroDetalhe permissoes(@PathParam("id") UUID id, @PathParam("grupoId") UUID grupoId, DadosPermissao dados) {
+        permissoes.salvar(storeId, id, grupoId, dados);
+        return detalhe(membros.cliente(storeId, id));
+    }
+
     @POST
     @Path("/cobrancas/{pagamentoId}/receber")
     @Transactional
@@ -225,6 +239,9 @@ public class MembrosResource {
                 .forEach(p -> pendencias.put(p.grupoId(), p.acao()));
         Map<UUID, Acesso> acessos = Acesso.<Acesso>list("cliente", c).stream()
                 .collect(Collectors.toMap(x -> x.grupo.id, x -> x));
+        Map<UUID, Permissao> perms = Permissao.<Permissao>list("cliente", c).stream()
+                .collect(Collectors.toMap(x -> x.grupo.id, x -> x));
+        Map<String, String> niveisDoPlano = Permissoes.doPlano(storeId);
         List<GrupoDoMembro> grupos = new ArrayList<>();
         for (Grupo g : base.grupos) {
             Acesso ac = acessos.get(g.id);
@@ -232,7 +249,8 @@ public class MembrosResource {
             if (!direito && ac == null) continue;
             grupos.add(new GrupoDoMembro(g.id, g.nome, g.plataforma, g.automatico(config), direito,
                     ac != null ? ac.status : null, ac != null ? ac.conviteLink : null, ac != null ? ac.entrouEm : null,
-                    pendencias.get(g.id)));
+                    pendencias.get(g.id),
+                    g.automatico(config) ? Permissoes.json(config, e, g, perms.get(g.id), niveisDoPlano) : null));
         }
 
         var daPagina = Financeiro.pagamentosDaPagina(storeId);

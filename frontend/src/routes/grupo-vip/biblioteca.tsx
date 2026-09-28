@@ -7,16 +7,20 @@ import {
   Copy,
   Download,
   ExternalLink,
+  FileText,
   FolderOpen,
   HardDrive,
   KeyRound,
+  Lightbulb,
   List,
   Pause,
+  Pencil,
   Play,
   Plus,
   RotateCw,
   Search,
   Send,
+  ShieldCheck,
   Trash2,
   TriangleAlert,
   Upload,
@@ -24,8 +28,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Botao,
+  BotaoCopiar,
   Campo,
   classeInput,
+  classeTexto,
   Interruptor,
   MensagemErro,
   Modal,
@@ -38,18 +44,25 @@ import {
   apiBiblioteca,
   enviarLivro,
   extensao,
+  palavras,
   rotuloStatusImportacao,
   rotuloStatusItem,
   tamanho,
   type DadosImportacao,
+  type DadosLivro,
   type Importacao,
   type ItemImportacao,
   type ListaLivros,
+  type Livro,
   type PainelBiblioteca,
+  type Palavras,
   type StatusItem,
+  type Sugestao,
+  type TipoBiblioteca,
 } from "../../lib/grupo-vip-biblioteca";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
-type Aba = "envios" | "livros" | "pedidos" | "google";
+type Aba = "envios" | "livros" | "sugestoes" | "pedidos" | "google";
 type Busca = { aba?: Aba };
 
 // Biblioteca: envio em massa de livros (Google Drive, computador ou o acervo
@@ -57,11 +70,14 @@ type Busca = { aba?: Aba };
 // no privado do robô).
 export const Route = createFileRoute("/grupo-vip/biblioteca")({
   validateSearch: (s: Record<string, unknown>): Busca => ({
-    aba: s.aba === "livros" || s.aba === "pedidos" || s.aba === "google" ? s.aba : undefined,
+    aba: s.aba === "livros" || s.aba === "sugestoes" || s.aba === "pedidos" || s.aba === "google" ? s.aba : undefined,
   }),
   loader: () => apiBiblioteca.painel(),
   component: PaginaBiblioteca,
 });
+
+// validade dos links de livro (LinksDeLivro.HORAS)
+const LINK_HORAS = 24;
 
 const ativos = new Set(["listando", "enviando", "recebendo"]);
 
@@ -89,12 +105,18 @@ function PaginaBiblioteca() {
   }, [andamento]);
 
   const totalLivros = p.resumo.reduce((s, r) => s + r.livros, 0);
+  const v = palavras(p.tipo);
 
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="envio-massa" />}
         titulo="Biblioteca"
-        descricao="Envie uma pasta inteira de livros (do Google Drive, do computador ou de outro grupo seu): o robô posta um por um no grupo do Telegram. Os membros também podem pedir qualquer livro no privado do robô escrevendo /livro e o nome."
+        descricao={
+          p.tipo === "materiais"
+            ? "Envie uma pasta inteira de materiais (apostilas, vídeos, áudios, planilhas... do Google Drive, do computador ou de outro grupo seu): o robô posta um por um no grupo do Telegram. No privado do robô, os membros procuram qualquer material pelo menu: por nome ou categoria."
+            : "Envie uma pasta inteira de livros (do Google Drive, do computador ou de outro grupo seu): o robô posta um por um no grupo do Telegram. No privado do robô, os membros procuram qualquer livro pelo menu: por nome, autor, categoria ou gênero."
+        }
       >
         <Botao onClick={() => setAjuda(true)}>
           <Download className="size-4" /> Como baixar todos os arquivos de um grupo do Telegram
@@ -118,9 +140,11 @@ function PaginaBiblioteca() {
         </Dica>
       )}
 
+      <SeletorTipo painel={p} aoSalvar={setP} />
+
       <div className="grid gap-3 sm:grid-cols-3">
-        <CardNumero icone={BookOpen} cor="from-orange-400 to-orange-600" rotulo="Livros na biblioteca" valor={formatar.numero(totalLivros)} />
-        <CardNumero icone={Send} cor="from-sky-400 to-sky-600" rotulo="Livros pedidos ao robô hoje" valor={p.pedidosHoje} detalhe={`limite de ${p.limitePorDia} por membro por dia`} />
+        <CardNumero icone={BookOpen} cor="from-orange-400 to-orange-600" rotulo={`${v.Uns} na biblioteca`} valor={formatar.numero(totalLivros)} />
+        <CardNumero icone={Send} cor="from-sky-400 to-sky-600" rotulo={`${v.Uns} pedidos ao robô hoje`} valor={p.pedidosHoje} detalhe={`limite de ${p.limitePorDia} por membro por dia`} />
         <CardNumero
           icone={CloudDownload}
           cor="from-violet-400 to-violet-600"
@@ -132,9 +156,10 @@ function PaginaBiblioteca() {
       <Abas
         abas={[
           { valor: "envios" as Aba, rotulo: "Envios em massa", quantidade: p.importacoes.length },
-          { valor: "livros" as Aba, rotulo: "Livros", quantidade: totalLivros },
-          { valor: "pedidos" as Aba, rotulo: "Mais pedidos" },
-          { valor: "google" as Aba, rotulo: p.googleConfigurado ? "Chave do Google ✓" : "Chave do Google" },
+          { valor: "livros" as Aba, rotulo: v.Uns, quantidade: totalLivros },
+          { valor: "sugestoes" as Aba, rotulo: "Sugestões", quantidade: p.sugestoesPendentes },
+          { valor: "pedidos" as Aba, rotulo: "Robô e mais pedidos" },
+          { valor: "google" as Aba, rotulo: p.contaServicoEmail ? "Google ✓" : "Google" },
         ]}
         valor={aba}
         aoMudar={mudarAba}
@@ -142,6 +167,7 @@ function PaginaBiblioteca() {
 
       {aba === "envios" && <AbaEnvios painel={p} aoMudar={recarregar} aoConfigurarGoogle={() => mudarAba("google")} />}
       {aba === "livros" && <AbaLivros painel={p} aoMudar={recarregar} />}
+      {aba === "sugestoes" && <AbaSugestoes v={v} aoMudar={recarregar} />}
       {aba === "pedidos" && <AbaMaisPedidos painel={p} />}
       {aba === "google" && <AbaGoogle painel={p} aoSalvar={setP} />}
 
@@ -163,6 +189,46 @@ function PaginaBiblioteca() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Livros ou outros materiais
+// ---------------------------------------------------------------------------
+
+// O que a biblioteca guarda. Materiais: textos do robô e do painel falam em
+// "material", aceita também vídeos, imagens, planilhas e apresentações, e não
+// usa o Google Books nem o campo gênero.
+function SeletorTipo({ painel, aoSalvar }: { painel: PainelBiblioteca; aoSalvar: (p: PainelBiblioteca) => void }) {
+  const { carregando, erro, executar } = useAcao();
+  const opcoes: [TipoBiblioteca, typeof BookOpen, string, string][] = [
+    ["livros", BookOpen, "Livros", "E-books, PDFs, quadrinhos e audiolivros. Completa autor, gênero e capa pelo Google Books."],
+    ["materiais", FileText, "Outros materiais", "Apostilas, vídeos, áudios, imagens, planilhas, apresentações, modelos..."],
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12.5px] text-gv-muted">O que a sua biblioteca guarda:</span>
+        <div className="inline-flex rounded-xl border border-gv-line bg-gv-bg/40 p-0.5">
+          {opcoes.map(([valor, Icone, rotulo, dica]) => (
+            <button
+              key={valor}
+              type="button"
+              title={dica}
+              disabled={carregando !== null}
+              onClick={() => valor !== painel.tipo && executar(valor, async () => aoSalvar(await apiBiblioteca.mudarTipo(valor)))}
+              className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium transition ${
+                painel.tipo === valor ? "bg-orange-500/20 text-orange-200" : "text-gv-muted hover:text-white"
+              }`}
+            >
+              <Icone className="size-3.5" /> {rotulo}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11.5px] text-gv-muted">{opcoes.find((o) => o[0] === painel.tipo)?.[3]}</span>
+      </div>
+      <MensagemErro texto={erro} />
     </div>
   );
 }
@@ -219,7 +285,7 @@ function ModalComoBaixar({ aoFechar }: { aoFechar: () => void }) {
       <div className="mt-5 flex flex-col gap-3">
         <Dica icone={FolderOpen} cor="emerald">
           No fim fica uma pasta com os arquivos separados (vídeos, fotos, arquivos) e um arquivo <b>messages.html</b>, que mostra cada arquivo
-          junto com o texto do post. Para subir os livros para o seu grupo, use o <b>Novo envio em massa › Do computador › Escolher uma pasta</b>.
+          junto com o texto do post. Para subir os arquivos para o seu grupo, use o <b>Novo envio em massa › Do computador › Escolher uma pasta</b>.
         </Dica>
         <Dica icone={TriangleAlert} cor="amber">
           <b>A opção não aparece ou os arquivos não vêm?</b> O dono do grupo ligou a proteção de conteúdo ("Restringir conteúdo salvo"). Aí o
@@ -246,16 +312,17 @@ function ModalComoBaixar({ aoFechar }: { aoFechar: () => void }) {
 function AbaEnvios({ painel, aoMudar, aoConfigurarGoogle }: { painel: PainelBiblioteca; aoMudar: () => Promise<void>; aoConfigurarGoogle: () => void }) {
   const { carregando, erro, executar } = useAcao();
   const [vendo, setVendo] = useState<Importacao | null>(null);
+  const v = palavras(painel.tipo);
 
   return (
     <div className="flex flex-col gap-3">
       {!painel.googleConfigurado && (
         <Dica icone={KeyRound}>
-          Para enviar direto de uma pasta do Google Drive, cadastre a{" "}
+          Para enviar direto de uma pasta do Google Drive, conecte o{" "}
           <button type="button" onClick={aoConfigurarGoogle} className="underline">
-            chave do Google
+            Google
           </button>{" "}
-          (uma vez só). Enviar do computador funciona sem ela.
+          (uma vez só). Enviar do computador funciona sem isso.
         </Dica>
       )}
       <MensagemErro texto={erro} />
@@ -318,8 +385,8 @@ function AbaEnvios({ painel, aoMudar, aoConfigurarGoogle }: { painel: PainelBibl
                     onClick={() =>
                       executar(`excluir:${i.id}`, async () => {
                         const msg = ativos.has(i.status) || i.status === "pausada"
-                          ? "Cancelar este envio? O que ainda não foi postado não será mais enviado. Os livros continuam na biblioteca."
-                          : "Tirar este envio da lista? Os livros continuam na biblioteca e no grupo.";
+                          ? `Cancelar este envio? O que ainda não foi postado não será mais enviado. Os ${v.uns} continuam na biblioteca.`
+                          : `Tirar este envio da lista? Os ${v.uns} continuam na biblioteca e no grupo.`;
                         if (!confirm(msg)) return;
                         await apiBiblioteca.excluir(i.id);
                         await aoMudar();
@@ -346,7 +413,7 @@ function AbaEnvios({ painel, aoMudar, aoConfigurarGoogle }: { painel: PainelBibl
                     </span>
                     <span className="text-emerald-300">{formatar.numero(i.enviados)} {i.postarNoGrupo ? "postados" : "na biblioteca"}</span>
                     {i.pulados > 0 && <span className="text-gv-muted">{i.pulados} pulados (repetidos ou formato não aceito)</span>}
-                    {i.grandes > 0 && <span className="text-amber-300">{i.grandes} acima de 50 MB</span>}
+                    {i.grandes > 0 && <span className="text-amber-300">{i.grandes} acima de 50 MB (o robô entrega um link temporário)</span>}
                     {i.falhas > 0 && <span className="text-red-300">{i.falhas} com falha</span>}
                     {i.minutosRestantes !== null && i.pendentes > 0 && (
                       <span className="text-gv-muted">
@@ -512,6 +579,7 @@ function ModalEnvio({
   const grupo = painel.grupos.find((g) => g.id === f.grupoId);
   const outrosGrupos = painel.grupos.filter((g) => g.id !== f.grupoId);
   const [conferindo, setConferindo] = useState(false);
+  const v = palavras(painel.tipo);
 
   // Separa o que dá para enviar do que vai ser ignorado (formato ou tamanho).
   const analise = useMemo(() => {
@@ -532,7 +600,7 @@ function ModalEnvio({
   async function comecar() {
     setErro(null);
     if (f.origem === "computador" && analise.aceitos.length === 0) {
-      setErro("Escolha os arquivos dos livros");
+      setErro(`Escolha os arquivos dos ${v.uns}`);
       return;
     }
     setTrabalhando(true);
@@ -575,7 +643,7 @@ function ModalEnvio({
   return (
     <Modal
       titulo="Novo envio em massa"
-      subtitulo="Os livros entram na biblioteca e o robô posta um por um no grupo (cerca de 20 por minuto)."
+      subtitulo={`Os ${v.uns} entram na biblioteca e o robô posta um por um no grupo (cerca de 20 por minuto).`}
       aoFechar={enviandoArquivos ? () => {} : aoFechar}
       largura="max-w-2xl"
     >
@@ -644,7 +712,7 @@ function ModalEnvio({
                 {!painel.donoConectado ? (
                   <Dica icone={Bot} cor="amber">
                     <b>1º passo (uma vez só):</b> conecte o seu Telegram de dono ao robô. Ele usa a conversa com você para ler as mensagens do
-                    grupo antigo (elas aparecem e somem rapidinho).
+                    grupo antigo (elas aparecem e somem rapidinho). <BotaoGuia id="dono-telegram" rotulo="Passo a passo completo" />
                     <div className="mt-2 flex flex-wrap gap-2">
                       {painel.linkDono && (
                         <a href={painel.linkDono} target="_blank" rel="noreferrer">
@@ -715,10 +783,10 @@ function ModalEnvio({
                   ligado={f.copiarMidias}
                   aoMudar={(copiarMidias) => setF((v) => ({ ...v, copiarMidias }))}
                   titulo="Copiar também fotos, vídeos e áudios"
-                  descricao="Desligado: copia só os arquivos (livros, PDFs, documentos). Mensagens de texto nunca são copiadas."
+                  descricao={`Desligado: copia só os arquivos (${painel.tipo === "materiais" ? "PDFs, documentos, planilhas" : "livros, PDFs, documentos"}). Mensagens de texto nunca são copiadas.`}
                 />
                 <p className="text-[12px] text-gv-muted">
-                  O robô lê cerca de 1 mensagem por segundo e depois copia cerca de 20 arquivos por minuto. Os livros que o robô já postou no
+                  O robô lê cerca de 1 mensagem por segundo e depois copia cerca de 20 arquivos por minuto. Os {v.uns} que o robô já postou no
                   grupo de origem vão direto, sem precisar ler.
                 </p>
               </div>
@@ -728,8 +796,17 @@ function ModalEnvio({
                   rotulo="Link da pasta do Google Drive *"
                   dica={
                     <>
-                      No Drive: botão direito na pasta › <b>Compartilhar</b> › Acesso geral: <b>Qualquer pessoa com o link</b> › Copiar link. As
-                      subpastas também entram.
+                      {painel.contaServicoEmail ? (
+                        <>
+                          No Drive: botão direito na pasta › <b>Compartilhar</b> › adicione <b>{painel.contaServicoEmail}</b> como Leitor (acesso
+                          geral: Restrito) › Copiar link. As subpastas também entram.
+                        </>
+                      ) : (
+                        <>
+                          No Drive: botão direito na pasta › <b>Compartilhar</b> › Acesso geral: <b>Qualquer pessoa com o link</b> › Copiar link. As
+                          subpastas também entram. Melhor: use a pasta privada (aba Google).
+                        </>
+                      )}
                     </>
                   }
                 >
@@ -743,16 +820,16 @@ function ModalEnvio({
                 </Campo>
               ) : (
                 <Dica icone={KeyRound} cor="amber">
-                  Para ler pastas do Drive, primeiro cadastre a{" "}
+                  Para ler pastas do Drive, primeiro conecte o{" "}
                   <button type="button" className="underline" onClick={aoConfigurarGoogle}>
-                    chave do Google
+                    Google
                   </button>{" "}
                   (leva uns 5 minutos, uma vez só).
                 </Dica>
               )
             ) : (
               <div>
-                <span className="text-xs font-medium text-slate-300">Arquivos dos livros *</span>
+                <span className="text-xs font-medium text-slate-300">Arquivos dos {v.uns} *</span>
                 <div className="mt-1.5 flex flex-wrap gap-2">
                   <Botao onClick={() => entradaArquivos.current?.click()}>
                     <Upload className="size-4" /> Escolher arquivos
@@ -782,7 +859,7 @@ function ModalEnvio({
                 {arquivos.length > 0 && (
                   <div className="mt-2 rounded-xl border border-gv-line bg-gv-bg/40 px-3 py-2 text-[12.5px]">
                     <div className="text-white">
-                      {formatar.numero(analise.aceitos.length)} livro(s) para enviar · {tamanho(analise.bytes)}
+                      {formatar.numero(analise.aceitos.length)} arquivo(s) para enviar · {tamanho(analise.bytes)}
                     </div>
                     {analise.formato > 0 && <div className="text-gv-muted">{analise.formato} arquivo(s) ignorados (formato não aceito)</div>}
                     {analise.grandes > 0 && <div className="text-amber-300">{analise.grandes} arquivo(s) acima de 50 MB ignorados (limite do robô)</div>}
@@ -807,7 +884,7 @@ function ModalEnvio({
                 </select>
               </Campo>
               {grupo && grupo.topicos.length > 0 && f.postarNoGrupo && (
-                <Campo rotulo="Tópico" dica="Dica: crie um tópico só para os livros.">
+                <Campo rotulo="Tópico" dica={`Dica: crie um tópico só para os ${v.uns}.`}>
                   <select className={classeInput} value={f.topicoId ?? ""} onChange={(e) => setF((v) => ({ ...v, topicoId: e.target.value || null }))}>
                     <option value="">Tópico geral</option>
                     {grupo.topicos.map((t) => (
@@ -822,11 +899,11 @@ function ModalEnvio({
             <Interruptor
               ligado={f.postarNoGrupo}
               aoMudar={(postarNoGrupo) => setF((v) => ({ ...v, postarNoGrupo }))}
-              titulo="Postar os livros no grupo"
+              titulo={`Postar os ${v.uns} no grupo`}
               descricao={
                 f.postarNoGrupo
-                  ? "O robô posta um por um no grupo (livros que já estão no grupo são pulados). Eles também ficam no robô bibliotecário."
-                  : "Os livros ficam só no robô bibliotecário: o membro pede com /livro e recebe no privado. O grupo não recebe nada."
+                  ? `O robô posta um por um no grupo (${v.uns} que já estão no grupo são pulados). Eles também ficam no robô bibliotecário.`
+                  : `Os ${v.uns} ficam só no robô bibliotecário: o membro pede pelo menu do robô e recebe no privado. O grupo não recebe nada.`
               }
             />
             {f.postarNoGrupo && f.origem === "computador" && analise.aceitos.length > 0 && (
@@ -871,7 +948,12 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
   const [grupo, setGrupo] = useState<string>("");
   const [pagina, setPagina] = useState(0);
   const [lista, setLista] = useState<ListaLivros | null>(null);
+  const [editando, setEditando] = useState<Livro | null>(null);
+  // capas que não carregaram (mostra o ícone no lugar)
+  const [semCapa, setSemCapa] = useState<Set<string>>(new Set());
   const { carregando, erro, setErro, executar } = useAcao();
+  const v = palavras(painel.tipo);
+  const materiais = painel.tipo === "materiais";
 
   const buscar = async (pg = pagina) => {
     try {
@@ -896,7 +978,7 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
       <div className="flex flex-wrap gap-2 border-b border-gv-line p-4">
         <label className="relative min-w-0 flex-1 sm:max-w-sm">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gv-muted" />
-          <input className={`${classeInput} pl-9`} type="search" placeholder="Buscar livro" value={termo} onChange={(e) => setTermo(e.target.value)} />
+          <input className={`${classeInput} pl-9`} type="search" placeholder={`Buscar ${v.um}`} value={termo} onChange={(e) => setTermo(e.target.value)} />
         </label>
         {painel.resumo.length > 1 && (
           <select className={`${classeInput} w-auto`} value={grupo} onChange={(e) => setGrupo(e.target.value)}>
@@ -915,14 +997,14 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
       {lista === null ? (
         <div className="py-10 text-center text-sm text-gv-muted">Carregando...</div>
       ) : lista.livros.length === 0 ? (
-        <Vazio icone={BookOpen}>{termo ? "Nenhum livro com essa busca." : "Nenhum livro ainda. Faça um envio em massa."}</Vazio>
+        <Vazio icone={materiais ? FileText : BookOpen}>{termo ? `Nenhum ${v.um} com essa busca.` : `Nenhum ${v.um} ainda. Faça um envio em massa.`}</Vazio>
       ) : (
         <>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-[13px]">
               <thead className={cabecalhoTabela}>
                 <tr>
-                  <th className="px-4 py-2 font-medium">Livro</th>
+                  <th className="px-4 py-2 font-medium">{v.Um}</th>
                   <th className="px-4 py-2 font-medium">Grupo</th>
                   <th className="px-4 py-2 font-medium">Tamanho</th>
                   <th className="px-4 py-2 text-right font-medium">Pedidos</th>
@@ -933,24 +1015,62 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
                 {lista.livros.map((l) => (
                   <tr key={l.id}>
                     <td className="px-4 py-2.5">
-                      <div className="font-medium text-white">{l.titulo}</div>
-                      <div className="text-[11.5px] text-gv-muted">
-                        {l.arquivoNome} · {l.origem === "drive" ? "Google Drive" : l.origem === "telegram" ? "copiado de grupo" : "computador"}
-                        {l.noTelegram && " · já no Telegram"}
+                      <div className="flex items-start gap-3">
+                        {l.capaUrl && !semCapa.has(l.id) ? (
+                          <img
+                            src={l.capaUrl}
+                            alt=""
+                            className="h-14 w-10 shrink-0 rounded object-cover"
+                            loading="lazy"
+                            onError={() => setSemCapa((s) => new Set(s).add(l.id))}
+                          />
+                        ) : (
+                          <span className="grid h-14 w-10 shrink-0 place-items-center rounded bg-gv-bg text-gv-muted">
+                            {materiais ? <FileText className="size-4" /> : <BookOpen className="size-4" />}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-medium text-white">{l.titulo}</div>
+                          {(l.autor || l.ano) && (
+                            <div className="text-[12px] text-slate-300">
+                              {l.autor}
+                              {l.ano ? ` (${l.ano})` : ""}
+                            </div>
+                          )}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {l.categoria && <Etiqueta cor="orange">{l.categoria}</Etiqueta>}
+                            {l.genero && l.genero !== l.categoria && <Etiqueta cor="violet">{l.genero}</Etiqueta>}
+                            {l.soLink && <Etiqueta cor="amber">acima de 50 MB · vai por link temporário</Etiqueta>}
+                            {!materiais && l.dadosStatus === "pendente" && painel.completarLivros && <Etiqueta cor="sky">buscando dados...</Etiqueta>}
+                            {!materiais && l.dadosStatus === "nao_encontrado" && <Etiqueta cor="slate">não achado no Google Books</Etiqueta>}
+                          </div>
+                          <div className="mt-0.5 text-[11.5px] text-gv-muted">
+                            {l.arquivoNome} · {l.origem === "drive" ? "Google Drive" : l.origem === "telegram" ? "copiado de grupo" : "computador"}
+                            {l.noTelegram && " · já no Telegram"}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-slate-300">{l.grupo}</td>
                     <td className="px-4 py-2.5 whitespace-nowrap text-gv-muted">{tamanho(l.tamanho)}</td>
                     <td className="px-4 py-2.5 text-right text-slate-200">{l.pedidos}</td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        aria-label="Editar"
+                        onClick={() => setEditando(l)}
+                        className="rounded-lg p-1.5 text-gv-muted hover:bg-white/5 hover:text-white"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
                       <button
                         type="button"
                         aria-label="Excluir"
                         disabled={carregando === l.id}
                         onClick={() =>
                           executar(l.id, async () => {
-                            if (!confirm(`Tirar "${l.titulo}" da biblioteca? O robô para de enviar este livro.`)) return;
-                            const doGrupo = confirm("Apagar também os posts deste livro no grupo do Telegram?\n\nOK = apagar do grupo · Cancelar = deixar no grupo");
+                            if (!confirm(`Tirar "${l.titulo}" da biblioteca? O robô para de enviar este ${v.um}.`)) return;
+                            const doGrupo = confirm(`Apagar também os posts deste ${v.um} no grupo do Telegram?\n\nOK = apagar do grupo · Cancelar = deixar no grupo`);
                             await apiBiblioteca.excluirLivro(l.id, doGrupo);
                             await buscar();
                             await aoMudar();
@@ -968,7 +1088,7 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-gv-line px-4 py-3 text-[12.5px] text-gv-muted">
             <span>
-              {formatar.numero(lista.total)} livro(s) · página {lista.pagina + 1} de {paginas}
+              {formatar.numero(lista.total)} {v.um}(s) · página {lista.pagina + 1} de {paginas}
             </span>
             <div className="flex gap-1.5">
               <Botao pequeno disabled={pagina === 0} onClick={() => { setPagina(pagina - 1); buscar(pagina - 1); }}>
@@ -981,7 +1101,188 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
           </div>
         </>
       )}
+      {editando && (
+        <ModalLivro
+          tipo={painel.tipo}
+          livro={editando}
+          aoFechar={() => setEditando(null)}
+          aoSalvar={async () => {
+            setEditando(null);
+            await buscar();
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+function Etiqueta({ cor, children }: { cor: "orange" | "violet" | "amber" | "sky" | "slate"; children: React.ReactNode }) {
+  const cores = {
+    orange: "bg-orange-500/15 text-orange-300",
+    violet: "bg-violet-500/15 text-violet-300",
+    amber: "bg-amber-500/15 text-amber-300",
+    sky: "bg-sky-500/15 text-sky-300",
+    slate: "bg-slate-500/20 text-slate-300",
+  };
+  return <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${cores[cor]}`}>{children}</span>;
+}
+
+// Corrigir os dados do livro (o que o robô usa para buscar por autor, categoria e gênero).
+function ModalLivro({ tipo, livro, aoFechar, aoSalvar }: { tipo: TipoBiblioteca; livro: Livro; aoFechar: () => void; aoSalvar: () => void }) {
+  const v = palavras(tipo);
+  const materiais = tipo === "materiais";
+  const [f, setF] = useState<DadosLivro>({
+    titulo: livro.titulo,
+    autor: livro.autor ?? "",
+    categoria: livro.categoria ?? "",
+    genero: livro.genero ?? "",
+    sinopse: livro.sinopse ?? "",
+  });
+  const { carregando, erro, executar } = useAcao();
+  const muda = (campo: keyof DadosLivro) => (e: { target: { value: string } }) => setF((v) => ({ ...v, [campo]: e.target.value }));
+
+  return (
+    <Modal titulo={`Dados do ${v.um}`} subtitulo={livro.arquivoNome} aoFechar={aoFechar} largura="max-w-xl">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Campo rotulo="Título *" className="sm:col-span-2">
+          <input autoFocus className={classeInput} value={f.titulo} onChange={muda("titulo")} />
+        </Campo>
+        <Campo rotulo={materiais ? "Autor (opcional)" : "Autor"} className="sm:col-span-2">
+          <input className={classeInput} value={f.autor} onChange={muda("autor")} placeholder={materiais ? "Ex.: nome do professor" : "Ex.: Machado de Assis"} />
+        </Campo>
+        <Campo rotulo="Categoria" className={materiais ? "sm:col-span-2" : undefined} dica={`No robô: Baixar um ${v.um} › Por categoria.`}>
+          <input className={classeInput} value={f.categoria} onChange={muda("categoria")} placeholder={materiais ? "Ex.: Módulo 1" : "Ex.: Clássicos"} />
+        </Campo>
+        {!materiais && (
+          <Campo rotulo="Gênero" dica="No robô: Baixar um livro › Por gênero.">
+            <input className={classeInput} value={f.genero} onChange={muda("genero")} placeholder="Ex.: Romance" />
+          </Campo>
+        )}
+        <Campo rotulo={materiais ? "Descrição" : "Resumo"} className="sm:col-span-2" dica={`Aparece no ${v.Um} surpresa do robô.`}>
+          <textarea className={classeTexto} rows={4} value={f.sinopse} onChange={muda("sinopse")} />
+        </Campo>
+      </div>
+      <p className="mt-3 text-[12px] text-gv-muted">
+        Salvar vale também para as cópias deste {v.um} em outros grupos{materiais ? "." : ", e o Google Books não troca mais."}
+      </p>
+      <div className="mt-3">
+        <MensagemErro texto={erro} />
+      </div>
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        {!materiais && <Botao
+          carregando={carregando === "google"}
+          onClick={() =>
+            executar("google", async () => {
+              await apiBiblioteca.buscarDados(livro.id);
+              aoSalvar();
+            })
+          }
+        >
+          <RotateCw className="size-4" /> Buscar no Google Books de novo
+        </Botao>}
+        <Botao onClick={aoFechar}>Cancelar</Botao>
+        <Botao
+          variante="primario"
+          carregando={carregando === "salvar"}
+          onClick={() =>
+            executar("salvar", async () => {
+              await apiBiblioteca.editarLivro(livro.id, f);
+              aoSalvar();
+            })
+          }
+        >
+          Salvar
+        </Botao>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sugestões dos membros
+// ---------------------------------------------------------------------------
+
+function AbaSugestoes({ v, aoMudar }: { v: Palavras; aoMudar: () => Promise<void> }) {
+  const [lista, setLista] = useState<Sugestao[] | null>(null);
+  const { carregando, erro, setErro, executar } = useAcao();
+  useEffect(() => {
+    apiBiblioteca.sugestoes().then(setLista).catch((e) => setErro(mensagemDe(e)));
+  }, [setErro]);
+
+  const responder = (s: Sugestao, acao: "adicionado" | "recusado") =>
+    executar(`${acao}:${s.ids[0]}`, async () => {
+      if (acao === "recusado" && !confirm(`Recusar "${s.titulo}"? Quem pediu recebe um aviso no Telegram.`)) return;
+      setLista(await apiBiblioteca.responder(s.ids, acao, null));
+      await aoMudar();
+    });
+
+  const pendentes = lista?.filter((s) => s.status === "pendente") ?? [];
+  const respondidas = lista?.filter((s) => s.status !== "pendente") ?? [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Dica icone={Lightbulb}>
+        {v.Uns} que os membros pediram pelo robô (menu › Sugerir um {v.um}). Quando o {v.um} chega pela biblioteca (envio em massa), a sugestão
+        é atendida sozinha e o robô avisa quem pediu com um botão para receber. Se o {v.um} já estava lá com outro nome, toque em{" "}
+        <b>Já está na biblioteca</b>.
+      </Dica>
+      <MensagemErro texto={erro} />
+      <Card className="!p-0">
+        <div className="p-4 pb-2">
+          <TituloCard icone={Lightbulb}>Pedidos em aberto</TituloCard>
+        </div>
+        {lista === null ? (
+          <div className="py-8 text-center text-sm text-gv-muted">Carregando...</div>
+        ) : pendentes.length === 0 ? (
+          <Vazio icone={Lightbulb}>Nenhuma sugestão em aberto.</Vazio>
+        ) : (
+          <ul className="divide-y divide-gv-line/70">
+            {pendentes.map((s) => (
+              <li key={s.ids[0]} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-white">
+                    {s.titulo}
+                    {s.autor && <span className="font-normal text-slate-300"> · {s.autor}</span>}
+                  </div>
+                  <div className="text-[12px] text-gv-muted">
+                    {s.pedidos} pedido(s) · {s.nomes.join(", ")}
+                    {s.pedidos > s.nomes.length ? "..." : ""} · último {formatar.diaHora(s.ultimaEm)}
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <Botao pequeno variante="sucesso" carregando={carregando === `adicionado:${s.ids[0]}`} onClick={() => responder(s, "adicionado")}>
+                    <CircleCheck className="size-3.5" /> Já está na biblioteca
+                  </Botao>
+                  <Botao pequeno variante="perigo" carregando={carregando === `recusado:${s.ids[0]}`} onClick={() => responder(s, "recusado")}>
+                    Recusar
+                  </Botao>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      {respondidas.length > 0 && (
+        <Card className="!p-0">
+          <div className="p-4 pb-2">
+            <TituloCard icone={List}>Respondidas (últimos 60 dias)</TituloCard>
+          </div>
+          <ul className="divide-y divide-gv-line/70">
+            {respondidas.map((s) => (
+              <li key={s.ids[0]} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2.5 text-[13px]">
+                <span className="min-w-0 flex-1 text-slate-200">
+                  {s.titulo} <span className="text-gv-muted">· {s.nomes.join(", ")}</span>
+                </span>
+                <span className={s.status === "adicionado" ? "text-emerald-300" : "text-red-300"}>
+                  {s.status === "adicionado" ? `Atendida${s.livro ? `: ${s.livro}` : ""}` : "Recusada"}
+                </span>
+                <span className="text-[11.5px] text-gv-muted">{formatar.diaHora(s.respondidaEm)}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -990,14 +1291,16 @@ function AbaLivros({ painel, aoMudar }: { painel: PainelBiblioteca; aoMudar: () 
 // ---------------------------------------------------------------------------
 
 function AbaMaisPedidos({ painel }: { painel: PainelBiblioteca }) {
+  const v = palavras(painel.tipo);
+  const materiais = painel.tipo === "materiais";
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
       <Card className="!p-0">
         <div className="p-4 pb-2">
-          <TituloCard icone={Send}>Livros mais pedidos ao robô</TituloCard>
+          <TituloCard icone={Send}>{v.Uns} mais pedidos ao robô</TituloCard>
         </div>
         {painel.maisPedidos.length === 0 ? (
-          <Vazio icone={BookOpen}>Ninguém pediu livros ao robô ainda.</Vazio>
+          <Vazio icone={BookOpen}>Ninguém pediu {v.uns} ao robô ainda.</Vazio>
         ) : (
           <ol className="divide-y divide-gv-line/70">
             {painel.maisPedidos.map((m, i) => (
@@ -1017,19 +1320,36 @@ function AbaMaisPedidos({ painel }: { painel: PainelBiblioteca }) {
         )}
       </Card>
       <Card>
-        <TituloCard icone={Bot}>Como o membro pede</TituloCard>
+        <TituloCard icone={Bot}>Como o membro usa o robô</TituloCard>
         <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-[13px] text-slate-300">
           <li>
-            Abre a conversa com o robô{painel.roboUsuario ? <b> @{painel.roboUsuario}</b> : ""} no Telegram.
+            Abre a conversa com o robô{painel.roboUsuario ? <b> @{painel.roboUsuario}</b> : ""} no Telegram e escreve "oi" (ou toca em Menu).
           </li>
           <li>
-            Escreve <code className="text-orange-300">/livro</code> e o nome (ou parte dele). Ex.: <code className="text-orange-300">/livro dom casmurro</code>
+            O robô mostra os botões: <b>Baixar um {v.um}</b>, Sugerir um {v.um}, Novidades, Mais pedidos, {v.Um} surpresa, Meus pedidos, Meus
+            grupos, Minha assinatura, Indique e ganhe, Falar com a equipe e Conhecer mais.
           </li>
-          <li>Se achar vários, o robô mostra uma lista e a pessoa toca no livro.</li>
-          <li>O robô manda o arquivo no privado (protegido contra encaminhar, se o grupo estiver com proteção ligada).</li>
+          <li>
+            {materiais ? (
+              <>
+                Em Baixar um material, escolhe como procurar: <b>pelo nome</b> ou <b>por categoria</b> (as subpastas do Drive ou do computador).
+              </>
+            ) : (
+              <>
+                Em Baixar um livro, escolhe como procurar: <b>pelo nome</b>, <b>pelo autor</b>, <b>por categoria</b> (as subpastas do Drive) ou{" "}
+                <b>por gênero</b> (Google Books).
+              </>
+            )}
+          </li>
+          <li>
+            Toca no {v.um} e recebe o arquivo no privado (protegido contra encaminhar, se o grupo estiver com proteção). Arquivo acima de 50 MB vai
+            por um link temporário do sistema (só dele, vale 24 horas e para de abrir se ele deixar de pagar).
+          </li>
+          <li>Não achou? Toca em "Pedir este {v.um}": a sugestão aparece na aba Sugestões.</li>
         </ol>
         <p className="mt-3 text-[12px] text-gv-muted">
-          Só quem está com acesso ao grupo do livro recebe. Limite de {painel.limitePorDia} livros por pessoa por dia.
+          Só quem está com acesso ao grupo do {v.um} recebe. Limite de {painel.limitePorDia} {v.uns} por pessoa por dia. Quem ainda não é membro vê
+          outro menu: conhecer o negócio, ver os planos e "já sou membro". Mensagens escritas fora do menu continuam indo para o Suporte.
         </p>
       </Card>
     </div>
@@ -1037,91 +1357,200 @@ function AbaMaisPedidos({ painel }: { painel: PainelBiblioteca }) {
 }
 
 // ---------------------------------------------------------------------------
-// Chave do Google
+// Google (Drive e Google Books)
 // ---------------------------------------------------------------------------
 
 function AbaGoogle({ painel, aoSalvar }: { painel: PainelBiblioteca; aoSalvar: (p: PainelBiblioteca) => void }) {
   const [chave, setChave] = useState("");
   const { carregando, erro, executar } = useAcao();
-  const [ok, setOk] = useState(false);
+  const [ok, setOk] = useState<string | null>(null);
+  const entradaJson = useRef<HTMLInputElement>(null);
+  const v = palavras(painel.tipo);
+
+  const enviarJson = (arquivo: File | undefined) => {
+    if (!arquivo) return;
+    executar("conta", async () => {
+      aoSalvar(await apiBiblioteca.salvarContaServico(await arquivo.text()));
+      setOk(`Conta de serviço conectada. Agora compartilhe a pasta dos ${v.uns} com o e-mail dela.`);
+    });
+  };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <TituloCard icone={KeyRound}>Chave do Google</TituloCard>
-        <p className="mt-1 text-[12.5px] text-gv-muted">Serve para o sistema ler as pastas públicas do seu Google Drive. É gratuita e fica guardada só no servidor.</p>
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          {painel.googleConfigurado ? (
-            <span className="inline-flex items-center gap-1.5 text-emerald-300">
-              <CircleCheck className="size-4" /> Chave cadastrada
-            </span>
+    <div className="flex flex-col gap-4">
+      <MensagemErro texto={erro} />
+      {ok && !erro && <p className="text-sm text-emerald-300">{ok}</p>}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <TituloCard icone={ShieldCheck}>Pasta privada (recomendado)</TituloCard>
+          <p className="mt-1 text-[12.5px] text-gv-muted">
+            Com a <b>conta de serviço</b>, a pasta dos {v.uns} no Drive fica <b>Restrita</b>: só o sistema consegue abrir. Os membros nunca veem o
+            endereço do Drive. Arquivos que não vão pelo Telegram saem por um link do sistema que é só daquela pessoa, vale{" "}
+            {LINK_HORAS} horas e para de funcionar se ela deixar de pagar.
+          </p>
+          {painel.contaServicoEmail ? (
+            <div className="mt-3 flex flex-col gap-2">
+              <span className="inline-flex items-center gap-1.5 text-sm text-emerald-300">
+                <CircleCheck className="size-4" /> Conta de serviço conectada
+              </span>
+              <div className="rounded-xl border border-gv-line bg-gv-bg/40 px-3 py-2">
+                <div className="text-[11px] text-gv-muted">Compartilhe a pasta dos {v.uns} com este e-mail (como Leitor)</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-slate-200">{painel.contaServicoEmail}</span>
+                  <BotaoCopiar texto={painel.contaServicoEmail} />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Botao pequeno carregando={carregando === "conta"} onClick={() => entradaJson.current?.click()}>
+                  <Upload className="size-3.5" /> Trocar arquivo
+                </Botao>
+                <Botao
+                  pequeno
+                  variante="perigo"
+                  carregando={carregando === "tirar-conta"}
+                  onClick={() =>
+                    executar("tirar-conta", async () => {
+                      if (!confirm("Desconectar a conta de serviço? Pastas privadas param de funcionar.")) return;
+                      aoSalvar(await apiBiblioteca.salvarContaServico(""));
+                    })
+                  }
+                >
+                  Desconectar
+                </Botao>
+              </div>
+            </div>
           ) : (
-            <span className="text-amber-300">Nenhuma chave cadastrada</span>
+            <div className="mt-3">
+              <Botao variante="primario" carregando={carregando === "conta"} onClick={() => entradaJson.current?.click()}>
+                <Upload className="size-4" /> Enviar o arquivo .json da conta de serviço
+              </Botao>
+            </div>
           )}
-        </div>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <input className={classeInput} value={chave} placeholder="AIza..." onChange={(e) => setChave(e.target.value)} />
-          <Botao
-            variante="primario"
-            disabled={!chave.trim()}
-            carregando={carregando === "salvar"}
-            onClick={() =>
-              executar("salvar", async () => {
-                aoSalvar(await apiBiblioteca.salvarChave(chave));
-                setChave("");
-                setOk(true);
-              })
-            }
-          >
-            Salvar chave
-          </Botao>
-        </div>
-        {painel.googleConfigurado && (
-          <Botao
-            pequeno
-            variante="perigo"
-            className="mt-2"
-            carregando={carregando === "tirar"}
-            onClick={() =>
-              executar("tirar", async () => {
-                if (!confirm("Apagar a chave do Google? Os envios pelo Drive param de funcionar.")) return;
-                aoSalvar(await apiBiblioteca.salvarChave(""));
-              })
-            }
-          >
-            Apagar chave
-          </Botao>
-        )}
-        <div className="mt-3">
-          <MensagemErro texto={erro} />
-          {ok && !erro && <p className="text-sm text-emerald-300">Chave salva. Ela é testada no primeiro envio pelo Drive.</p>}
-        </div>
-      </Card>
-      <Card>
-        <TituloCard icone={List}>Como criar a chave (uma vez só)</TituloCard>
-        <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-[13px] text-slate-300">
-          <li>
-            Entre em{" "}
-            <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-orange-300 underline">
-              console.cloud.google.com
-            </a>{" "}
-            com sua conta Google e aceite os termos. No topo, clique em <b>Selecionar projeto › Novo projeto</b>, dê um nome (ex.: Biblioteca) e crie.
-          </li>
-          <li>
-            No menu (☰): <b>APIs e serviços › Biblioteca</b>. Procure <b>Google Drive API</b> e clique em <b>Ativar</b>.
-          </li>
-          <li>
-            No menu: <b>APIs e serviços › Credenciais › Criar credenciais › Chave de API</b>. Copie a chave (começa com <code>AIza</code>).
-          </li>
-          <li>
-            Recomendado: clique na chave criada › <b>Restrições de API › Restringir chave</b> › marque só <b>Google Drive API</b> › Salvar.
-          </li>
-          <li>Cole a chave aqui ao lado e toque em Salvar chave.</li>
-        </ol>
-        <p className="mt-3 text-[12px] text-gv-muted">
-          A pasta dos livros no Drive precisa estar compartilhada como <b>"Qualquer pessoa com o link"</b>. Não precisa cartão de crédito.
-        </p>
-      </Card>
+          <input
+            ref={entradaJson}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              enviarJson(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </Card>
+        <Card>
+          <TituloCard icone={List}>Como criar a conta de serviço (uma vez só)</TituloCard>
+          <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-[13px] text-slate-300">
+            <li>
+              Entre em{" "}
+              <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-orange-300 underline">
+                console.cloud.google.com
+              </a>{" "}
+              com sua conta Google. No topo, <b>Selecionar projeto › Novo projeto</b>, dê um nome (ex.: Biblioteca) e crie.
+            </li>
+            <li>
+              No menu (☰): <b>APIs e serviços › Biblioteca</b>. Procure <b>Google Drive API</b> e clique em <b>Ativar</b>.
+            </li>
+            <li>
+              No menu: <b>IAM e administrador › Contas de serviço › Criar conta de serviço</b>. Dê um nome (ex.: robo-biblioteca) e clique em{" "}
+              <b>Concluir</b> (não precisa dar nenhum papel).
+            </li>
+            <li>
+              Clique na conta criada › aba <b>Chaves › Adicionar chave › Criar nova chave › JSON</b>. O computador baixa um arquivo .json.
+            </li>
+            <li>Envie esse arquivo aqui ao lado. Guarde-o bem: ele é a senha do sistema no seu Drive.</li>
+            <li>
+              No Google Drive: botão direito na pasta dos {v.uns} › <b>Compartilhar</b> › cole o e-mail da conta de serviço como <b>Leitor</b>. Em
+              "Acesso geral", deixe <b>Restrito</b>.
+            </li>
+          </ol>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <TituloCard icone={KeyRound}>Chave de API (opcional)</TituloCard>
+          <p className="mt-1 text-[12.5px] text-gv-muted">
+            {painel.contaServicoEmail
+              ? "Com a conta de serviço, a chave só serve para o Google Books completar os dados dos livros com um limite diário maior."
+              : "Sem a conta de serviço, a chave lê pastas PÚBLICAS do Drive (qualquer pessoa com o link abre). Prefira a pasta privada."}
+          </p>
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            {painel.chaveConfigurada ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-300">
+                <CircleCheck className="size-4" /> Chave cadastrada
+              </span>
+            ) : (
+              <span className="text-gv-muted">Nenhuma chave cadastrada</span>
+            )}
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input className={classeInput} value={chave} placeholder="AIza..." onChange={(e) => setChave(e.target.value)} />
+            <Botao
+              variante="primario"
+              disabled={!chave.trim()}
+              carregando={carregando === "salvar"}
+              onClick={() =>
+                executar("salvar", async () => {
+                  aoSalvar(await apiBiblioteca.salvarChave(chave));
+                  setChave("");
+                  setOk("Chave salva. Ela é testada no primeiro uso.");
+                })
+              }
+            >
+              Salvar chave
+            </Botao>
+          </div>
+          {painel.chaveConfigurada && (
+            <Botao
+              pequeno
+              variante="perigo"
+              className="mt-2"
+              carregando={carregando === "tirar"}
+              onClick={() =>
+                executar("tirar", async () => {
+                  if (!confirm("Apagar a chave do Google?")) return;
+                  aoSalvar(await apiBiblioteca.salvarChave(""));
+                })
+              }
+            >
+              Apagar chave
+            </Botao>
+          )}
+          <p className="mt-3 text-[12px] text-gv-muted">
+            Para criar: no mesmo projeto do Google Cloud, <b>APIs e serviços › Biblioteca</b> › ative a <b>Books API</b>; depois{" "}
+            <b>Credenciais › Criar credenciais › Chave de API</b>. Recomendado: restrinja a chave à Books API (e à Google Drive API, se usar pasta
+            pública).
+          </p>
+        </Card>
+        <Card>
+          <TituloCard icone={BookOpen}>Google Books</TituloCard>
+          {painel.tipo === "materiais" ? (
+            <p className="mt-2 text-[12.5px] text-gv-muted">
+              Não é usado na biblioteca de <b>outros materiais</b>: o robô usa o nome do arquivo e a subpasta (categoria). Para buscar autor,
+              gênero e capa, escolha <b>Livros</b> no topo da página.
+            </p>
+          ) : (
+          <div className="mt-3">
+            <Interruptor
+              ligado={painel.completarLivros}
+              aoMudar={(ligado) =>
+                executar("completar", async () => {
+                  aoSalvar(await apiBiblioteca.completar(ligado));
+                })
+              }
+              titulo="Completar os dados dos livros pelo Google Books"
+              descricao={
+                painel.completarLivros
+                  ? `Busca autor, gênero, capa, ano e resumo de cada livro (1 a cada 2 segundos).${
+                      painel.dadosPendentes > 0 ? ` Faltam ${painel.dadosPendentes}.` : ""
+                    } Funciona mesmo sem chave (com limite diário menor).`
+                  : "Desligado: o robô usa só o nome do arquivo e a subpasta do Drive (categoria)."
+              }
+            />
+          </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

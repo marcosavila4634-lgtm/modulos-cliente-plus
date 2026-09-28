@@ -16,7 +16,6 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -30,7 +29,9 @@ import java.util.stream.Collectors;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
-// Biblioteca de livros dos grupos do Telegram.
+// Biblioteca de livros (ou de outros materiais: apostilas, vídeos, áudios...,
+// ver Config.bibliotecaTipo e Vocabulario.java) dos grupos do Telegram. No
+// código, cada arquivo da biblioteca é um "Livro".
 //
 //   Envio em massa: o dono escolhe uma pasta PÚBLICA do Google Drive (ou envia
 //   os arquivos do computador) e um grupo. Os livros entram no catálogo e,
@@ -42,10 +43,16 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 //   file_id; o resto o robô descobre lendo as mensagens do grupo de origem
 //   uma por uma (EnvioEmMassa.varrer) e copia com copyMessage.
 //
-//   Robô bibliotecário: no privado, o membro escreve /livro <nome>; se ele tem
-//   acesso ao grupo do livro, o robô manda o arquivo (até LIMITE_POR_DIA por
-//   dia). Depois do 1º envio o Telegram guarda o arquivo (file_id) e os
-//   próximos pedidos saem na hora.
+//   Robô bibliotecário: no privado, o membro procura pelo menu do robô
+//   (Atendente.java) por nome, autor, categoria ou gênero; se ele tem acesso
+//   ao grupo do livro, o robô manda o arquivo (até LIMITE_POR_DIA por dia).
+//   Depois do 1º envio o Telegram guarda o arquivo (file_id) e os próximos
+//   pedidos saem na hora. Livros do Drive acima de 50 MB (limite do robô) não
+//   vão para o grupo, mas ficam na biblioteca: o robô entrega um link
+//   temporário do sistema (LinksDeLivro.java), nunca o endereço do Drive.
+//
+//   Dados dos livros: Catalogador.java (subpasta = categoria, nome do arquivo
+//   e Google Books).
 @ApplicationScoped
 public class Biblioteca {
 
@@ -64,6 +71,12 @@ public class Biblioteca {
     @Inject
     EnderecoPublico endereco;
 
+    @Inject
+    LinksDeLivro links;
+
+    @Inject
+    ContaServicoGoogle contaServico;
+
     @ConfigProperty(name = "grupo-vip.livros-dir", defaultValue = "data/livros")
     String pastaLivros;
 
@@ -76,7 +89,16 @@ public class Biblioteca {
     static final int INTERVALO_SEGUNDOS = 3;
     static final List<String> EXTENSOES = List.of("pdf", "epub", "mobi", "azw", "azw3", "djvu", "fb2", "txt", "rtf", "doc",
             "docx", "odt", "cbz", "cbr", "zip", "rar", "mp3", "m4b");
+    // Biblioteca de materiais (Config.bibliotecaTipo): também vídeos, imagens,
+    // planilhas, apresentações e mais formatos de áudio.
+    static final List<String> EXTENSOES_MATERIAIS = java.util.stream.Stream.concat(EXTENSOES.stream(), java.util.stream.Stream.of(
+            "mp4", "mov", "m4v", "webm", "mkv", "avi", "jpg", "jpeg", "png", "webp", "gif", "xls", "xlsx", "ods", "csv", "ppt",
+            "pptx", "odp", "m4a", "wav", "ogg", "aac", "7z")).toList();
     private static final int POR_PAGINA = 50;
+
+    static List<String> extensoes(Config c) {
+        return c.materiais() ? EXTENSOES_MATERIAIS : EXTENSOES;
+    }
 
     // ---------- Painel ----------
 
@@ -104,11 +126,23 @@ public class Biblioteca {
         if (config.telegramDonoCodigo == null) config.telegramDonoCodigo = UUID.randomUUID().toString().substring(0, 8);
         String linkDono = config.robo() ? Telegram.linkRobo(config.telegramBotUsuario, "dono_" + config.telegramDonoCodigo) : null;
 
-        return new PainelBiblioteca(config.googleApiKey != null && !config.googleApiKey.isBlank(), config.robo(),
+        String contaEmail = null;
+        if (config.googleContaServico != null) {
+            try {
+                contaEmail = contaServico.ler(config.googleContaServico).email();
+            } catch (GoogleDrive.ErroDrive ignorado) {
+                // JSON com defeito: aparece como não configurado
+            }
+        }
+        return new PainelBiblioteca(GoogleDrive.configurado(config), config.googleApiKey != null && !config.googleApiKey.isBlank(),
+                contaEmail, config.robo(),
                 config.telegramBotUsuario,
                 conteudos.grupos(storeId, config).stream().filter(ConteudosContrato.GrupoOpcao::automatico).toList(),
-                importacoes, resumo, maisPedidos, hoje, LIMITE_POR_DIA, TAMANHO_MAXIMO, EXTENSOES,
-                config.telegramDonoId != null, linkDono);
+                importacoes, resumo, maisPedidos, hoje, LIMITE_POR_DIA, TAMANHO_MAXIMO, extensoes(config),
+                config.telegramDonoId != null, linkDono, config.completarLivros,
+                (int) Livro.count("storeId = ?1 and dadosStatus = ?2", storeId, Livro.PENDENTE),
+                (int) LivroSugestao.count("storeId = ?1 and status = ?2", storeId, LivroSugestao.PENDENTE),
+                config.materiais() ? Config.MATERIAIS : Config.LIVROS);
     }
 
     static OffsetDateTime inicioDoDia() {
@@ -119,6 +153,23 @@ public class Biblioteca {
         String c = Membros.limpo(chave);
         if (c != null && !c.matches("[A-Za-z0-9_-]{20,}")) throw Erro.invalido("Chave inválida: copie a chave inteira (começa com AIza...)");
         membros.config(storeId).googleApiKey = c;
+    }
+
+    // Arquivo JSON da conta de serviço (pasta do Drive privada). Testa com o
+    // Google antes de guardar. Vazio = apaga.
+    public void salvarContaServico(UUID storeId, String conteudo) {
+        Config config = membros.config(storeId);
+        if (conteudo == null || conteudo.isBlank()) {
+            if (config.googleContaServico != null) contaServico.esquecer(config.googleContaServico);
+            config.googleContaServico = null;
+            return;
+        }
+        try {
+            contaServico.token(conteudo.trim());
+        } catch (GoogleDrive.ErroDrive e) {
+            throw Erro.invalido(e.getMessage());
+        }
+        config.googleContaServico = conteudo.trim();
     }
 
     // ---------- Livros ----------
@@ -139,7 +190,8 @@ public class Biblioteca {
 
     static LivroJson json(Livro l) {
         return new LivroJson(l.id, l.titulo, l.arquivoNome, l.tamanho, l.grupo.id, l.grupo.nome, l.origem, l.pedidos,
-                l.telegramFileId != null, l.createdAt);
+                l.telegramFileId != null, l.autor, l.categoria, l.genero, l.sinopse, l.capaUrl, l.ano, l.dadosStatus,
+                l.tamanho > TAMANHO_MAXIMO && l.telegramFileId == null, l.createdAt);
     }
 
     static List<String> termos(String busca) {
@@ -147,10 +199,12 @@ public class Biblioteca {
         return Arrays.stream(GestaoTelegram.normal(busca).split("[^\\p{L}\\p{N}]+")).filter(t -> !t.isEmpty()).toList();
     }
 
-    // Todas as palavras da busca aparecem no título ou no nome do arquivo.
+    // Todas as palavras da busca aparecem no título, no nome do arquivo, no
+    // autor, na categoria ou no gênero.
     static boolean combina(Livro l, List<String> termos) {
         if (termos.isEmpty()) return true;
-        String texto = GestaoTelegram.normal(l.titulo + " " + l.arquivoNome);
+        String texto = GestaoTelegram.normal(l.titulo + " " + l.arquivoNome + " " + (l.autor != null ? l.autor : "") + " "
+                + (l.categoria != null ? l.categoria : "") + " " + (l.genero != null ? l.genero : ""));
         return termos.stream().allMatch(texto::contains);
     }
 
@@ -250,8 +304,8 @@ public class Biblioteca {
             imp.topico = t;
         }
         if (Livro.DRIVE.equals(d.origem())) {
-            if (config.googleApiKey == null || config.googleApiKey.isBlank()) {
-                throw Erro.invalido("Cadastre a chave do Google (Biblioteca › Chave do Google) para ler pastas do Drive");
+            if (!GoogleDrive.configurado(config)) {
+                throw Erro.invalido("Configure o acesso ao Google Drive (Biblioteca › Google) para ler pastas do Drive");
             }
             String id = GoogleDrive.idDaPasta(d.pastaUrl());
             if (id == null) throw Erro.invalido("Link da pasta inválido: copie o link da pasta do Google Drive (drive.google.com/drive/folders/...)");
@@ -338,11 +392,20 @@ public class Biblioteca {
         l.arquivoUrl = de.arquivoUrl;
         l.md5 = de.md5;
         l.telegramFileId = de.telegramFileId;
+        l.autor = de.autor;
+        l.categoria = de.categoria;
+        l.genero = de.genero;
+        l.sinopse = de.sinopse;
+        l.capaUrl = de.capaUrl;
+        l.ano = de.ano;
+        l.dadosStatus = de.dadosStatus;
         return l;
     }
 
     // Um arquivo vindo do computador (o navegador manda um por vez).
-    public ItemJson receberArquivo(UUID storeId, UUID importacaoId, FileUpload upload) {
+    // pasta: subpasta onde o arquivo estava (quando o dono escolhe uma pasta
+    // inteira); vira a categoria do livro.
+    public ItemJson receberArquivo(UUID storeId, UUID importacaoId, FileUpload upload, String pasta) {
         Importacao imp = importacao(storeId, importacaoId);
         if (!Importacao.RECEBENDO.equals(imp.status)) throw Erro.conflito("Este envio não está recebendo arquivos");
         if (upload == null) throw Erro.invalido("Escolha um arquivo");
@@ -350,7 +413,7 @@ public class Biblioteca {
         int ordem = (int) ImportacaoItem.count("importacao", imp);
         ImportacaoItem item = novoItem(imp, nome, upload.size(), ordem);
         String ext = extensao(nome);
-        if (!EXTENSOES.contains(ext)) {
+        if (!extensoes(membros.config(storeId)).contains(ext)) {
             item.status = ImportacaoItem.PULADO;
             item.erro = "Formato não aceito (." + ext + ")";
         } else if (upload.size() > TAMANHO_MAXIMO) {
@@ -369,7 +432,7 @@ public class Biblioteca {
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
-                l = novoLivro(imp, nome, upload.size(), md5);
+                l = novoLivro(imp, nome, upload.size(), md5, pasta);
                 l.origem = Livro.COMPUTADOR;
                 l.arquivoUrl = guardado;
                 l.persist();
@@ -391,14 +454,14 @@ public class Biblioteca {
         return i;
     }
 
-    Livro novoLivro(Importacao imp, String nome, long tamanho, String md5) {
+    Livro novoLivro(Importacao imp, String nome, long tamanho, String md5, String pasta) {
         Livro l = new Livro();
         l.storeId = imp.storeId;
         l.grupo = imp.grupo;
-        l.titulo = titulo(nome);
         l.arquivoNome = nome;
         l.tamanho = tamanho;
         l.md5 = md5;
+        Catalogador.preparar(l, pasta, membros.config(imp.storeId).materiais());
         return l;
     }
 
@@ -495,107 +558,135 @@ public class Biblioteca {
         importacao(storeId, id).delete();
     }
 
-    // ---------- Robô bibliotecário ----------
+    // ---------- Dados dos livros (autor, categoria, gênero...) ----------
 
-    // /livro <nome> no privado do robô.
-    void pedir(Config config, Membro m, long chat, String busca) {
-        String token = config.telegramBotToken;
-        List<UUID> grupos = gruposDoMembro(config, m);
-        if (grupos == null) return;
-        long total = grupos.isEmpty() ? 0 : Livro.count("grupo.id in ?1", grupos);
-        if (total == 0) {
-            telegram.enviarTexto(token, chat, "Ainda não há livros disponíveis para você.");
-            return;
-        }
-        List<String> termos = termos(busca);
-        if (termos.isEmpty()) {
-            telegram.enviarTexto(token, chat, "📚 Temos <b>" + total + "</b> livros para você.\n\n"
-                    + "Para pedir, escreva <b>/livro</b> e o nome (ou parte do nome). Ex.:\n<code>/livro dom casmurro</code>");
-            return;
-        }
-        List<Livro> achados = Livro.<Livro>list("grupo.id in ?1", grupos).stream()
-                .filter(l -> combina(l, termos))
-                .sorted(Comparator.comparingInt((Livro l) -> l.titulo.length()).thenComparing(l -> l.titulo))
-                .toList();
-        if (achados.isEmpty()) {
-            telegram.enviarTexto(token, chat, "Não encontrei nenhum livro com \"" + Telegram.html(busca.trim())
-                    + "\". Tente só uma parte do nome (ex.: uma palavra do título ou o sobrenome do autor).");
-        } else if (achados.size() == 1) {
-            entregar(config, m, chat, achados.get(0));
-        } else {
-            List<Telegram.Escolha> escolhas = achados.stream().limit(8)
-                    .map(l -> new Telegram.Escolha("📘 " + (l.titulo.length() > 60 ? l.titulo.substring(0, 57) + "..." : l.titulo),
-                            "livro:" + l.id))
-                    .toList();
-            String texto = "Encontrei <b>" + achados.size() + "</b> livros. Toque no que você quer:"
-                    + (achados.size() > 8 ? "\n(mostrando 8; escreva mais palavras para achar mais rápido)" : "");
-            telegram.enviarEscolhas(token, chat, texto, escolhas);
+    // O dono corrigiu os dados: vale para o livro e para as cópias dele em
+    // outros grupos, e o Google Books não troca mais.
+    public void editarLivro(UUID storeId, UUID id, DadosLivro d) {
+        Livro l = livro(storeId, id);
+        if (d == null) throw Erro.invalido("Preencha os dados do livro");
+        String titulo = Membros.limpo(d.titulo());
+        if (titulo == null) throw Erro.invalido("Informe o título");
+        for (Livro c : copias(l)) {
+            c.titulo = Catalogador.limitar(titulo, 200);
+            c.autor = Catalogador.limitar(Membros.limpo(d.autor()), 200);
+            c.categoria = Catalogador.limitar(Membros.limpo(d.categoria()), 80);
+            c.genero = Catalogador.limitar(Membros.limpo(d.genero()), 60);
+            c.sinopse = d.sinopse() == null || d.sinopse().isBlank() ? null : Catalogador.limitar(d.sinopse().trim(), 1500);
+            c.dadosStatus = Livro.MANUAL;
         }
     }
 
-    // O membro tocou em um dos livros da lista.
-    void tocou(Config config, JsonNode toque) {
-        String dados = toque.path("data").asText("");
-        long usuario = toque.path("from").path("id").asLong();
-        String token = config.telegramBotToken;
-        if (!dados.startsWith("livro:")) {
-            telegram.responderToque(token, toque.path("id").asText(), null);
-            return;
-        }
-        telegram.responderToque(token, toque.path("id").asText(), "Enviando...");
-        Membro m = Membro.<Membro>find("storeId = ?1 and telegramId = ?2", config.storeId, usuario).firstResult();
-        if (m == null) return;
-        Livro l;
-        try {
-            l = Livro.findById(UUID.fromString(dados.substring("livro:".length())));
-        } catch (IllegalArgumentException e) {
-            return;
-        }
-        if (l == null || !l.storeId.equals(config.storeId)) {
-            telegram.enviarTexto(token, usuario, "Este livro não está mais disponível.");
-            return;
-        }
-        List<UUID> grupos = gruposDoMembro(config, m);
-        if (grupos == null) return;
-        if (!grupos.contains(l.grupo.id)) {
-            telegram.enviarTexto(token, usuario, "Este livro é do grupo " + Telegram.html(l.grupo.nome) + ", que não está no seu plano.");
-            return;
-        }
-        entregar(config, m, usuario, l);
+    // Procura os dados no Google Books de novo (ex.: depois de corrigir o nome).
+    public void buscarDadosDeNovo(UUID storeId, UUID id) {
+        for (Livro c : copias(livro(storeId, id))) c.dadosStatus = Livro.PENDENTE;
     }
 
-    // Grupos que o membro pode usar agora. null = sem acesso (o robô já avisou).
-    private List<UUID> gruposDoMembro(Config config, Membro m) {
-        Membros.Estado e = membros.base(config.storeId).estado(m.cliente.id);
-        if (!e.temAcesso()) {
-            telegram.enviarTexto(config.telegramBotToken, m.telegramId, "Seu acesso não está liberado agora. Veja sua situação aqui:\n"
-                    + endereco.areaMembro(m.codigo));
-            return null;
-        }
-        return new ArrayList<>(e.gruposComDireito());
+    public void completarLivros(UUID storeId, boolean ligado) {
+        membros.config(storeId).completarLivros = ligado;
     }
 
-    private void entregar(Config config, Membro m, long chat, Livro l) {
+    // Livros ou materiais: muda os textos do robô e do painel e os formatos
+    // aceitos. O que já está na biblioteca continua lá.
+    public void mudarTipo(UUID storeId, String tipo) {
+        if (!Config.LIVROS.equals(tipo) && !Config.MATERIAIS.equals(tipo)) throw Erro.invalido("Escolha livros ou materiais");
+        Config config = membros.config(storeId);
+        // materiais não passam pelo Google Books (Catalogador); se voltar para
+        // livros, os que ficaram pendentes são completados
+        config.bibliotecaTipo = tipo;
+        if (config.robo()) {
+            try {
+                telegram.definirComandos(config.telegramBotToken, comandos(config));
+            } catch (Telegram.ErroTelegram ignorado) {
+                // só o atalho do menu do robô
+            }
+        }
+    }
+
+    // Botão "Menu" da conversa com o robô.
+    static Map<String, String> comandos(Config config) {
+        Vocabulario v = Vocabulario.de(config);
+        Map<String, String> comandos = new java.util.LinkedHashMap<>();
+        comandos.put("menu", "Abrir o menu");
+        comandos.put("livro", v.t("Procurar um livro pelo nome"));
+        comandos.put("sugerir", v.t("Sugerir um livro para a biblioteca"));
+        comandos.put("grupos", "Receber os links dos seus grupos");
+        return comandos;
+    }
+
+    Livro livro(UUID storeId, UUID id) {
+        Livro l = Livro.findById(id);
+        if (l == null || !l.storeId.equals(storeId)) throw Erro.naoEncontrado("Livro não encontrado");
+        return l;
+    }
+
+    // O mesmo arquivo na biblioteca de vários grupos.
+    static List<Livro> copias(Livro l) {
+        return l.md5 != null ? Livro.list("storeId = ?1 and md5 = ?2", l.storeId, l.md5) : List.of(l);
+    }
+
+    // O livro (ou a cópia dele) de um grupo que a pessoa pode usar. null = não pode.
+    static Livro doMembro(Livro l, java.util.Collection<UUID> grupos) {
+        if (grupos.contains(l.grupo.id)) return l;
+        return copias(l).stream().filter(c -> grupos.contains(c.grupo.id)).findFirst().orElse(null);
+    }
+
+    // ---------- Entrega dos livros (robô) ----------
+
+    // Manda o livro no privado: o arquivo, se couber no Telegram, ou o link
+    // do Google Drive (arquivo acima de 50 MB, ou o Drive não deixou baixar).
+    // Devolve false se não deu (a pessoa já foi avisada).
+    boolean entregar(Config config, Membro m, long chat, Livro l) {
         String token = config.telegramBotToken;
+        Vocabulario v = Vocabulario.de(config);
         long hoje = LivroPedido.count("cliente = ?1 and momento >= ?2", m.cliente, inicioDoDia());
         if (hoje >= LIMITE_POR_DIA) {
-            telegram.enviarTexto(token, chat, "Você já pediu " + LIMITE_POR_DIA + " livros hoje. Amanhã você pode pedir mais 🙂");
-            return;
+            telegram.enviarTexto(token, chat, v.t("Você já pediu " + LIMITE_POR_DIA + " livros hoje. Amanhã você pode pedir mais 🙂"));
+            return false;
         }
-        String legenda = "📚 <b>" + Telegram.html(l.titulo) + "</b>";
+        String legenda = legenda(l);
         Telegram.Opcoes opcoes = new Telegram.Opcoes(null, l.grupo.protegerConteudo, List.of());
-        try {
-            if (l.telegramFileId != null) {
-                telegram.enviarDocumentoPorId(token, chat, l.telegramFileId, legenda, opcoes);
-            } else {
-                telegram.enviarTexto(token, chat, "⏳ Um instante, estou buscando o livro...");
-                JsonNode msg = enviarArquivo(config, chat, l, legenda, opcoes);
-                l.telegramFileId = msg.path("document").path("file_id").asText(null);
+        boolean porLink = l.telegramFileId == null && l.tamanho > TAMANHO_MAXIMO;
+        if (!porLink) {
+            try {
+                if (l.telegramFileId != null) {
+                    telegram.enviarDocumentoPorId(token, chat, l.telegramFileId, legenda, opcoes);
+                } else {
+                    telegram.enviarTexto(token, chat, v.t("⏳ Um instante, estou buscando o livro..."));
+                    JsonNode msg = enviarArquivo(config, chat, l, legenda, opcoes);
+                    l.telegramFileId = msg.path("document").path("file_id").asText(null);
+                }
+            } catch (GoogleDrive.ErroDrive e) {
+                Log.warnf("Biblioteca: não deu para buscar %s no Drive: %s", l.titulo, e.getMessage());
+                telegram.enviarTexto(token, chat, v.t("Não consegui buscar este livro agora. Tente de novo mais tarde."));
+                return false;
+            } catch (Telegram.ErroTelegram e) {
+                Log.warnf("Biblioteca: não deu para enviar %s: %s", l.titulo, e.getMessage());
+                if (l.driveId == null && l.arquivoUrl == null) {
+                    telegram.enviarTexto(token, chat, v.t("Não consegui enviar este livro agora. Tente de novo mais tarde."));
+                    return false;
+                }
+                porLink = true; // o Telegram não aceitou o arquivo: vai o link
             }
-        } catch (Telegram.ErroTelegram | GoogleDrive.ErroDrive e) {
-            Log.warnf("Biblioteca: não deu para enviar %s: %s", l.titulo, e.getMessage());
-            telegram.enviarTexto(token, chat, "Não consegui enviar este livro agora. Tente de novo mais tarde.");
-            return;
+        }
+        if (porLink) {
+            if (l.driveId == null && l.arquivoUrl == null) {
+                telegram.enviarTexto(token, chat, v.t("Este livro é grande demais para o Telegram. Avise a equipe, por favor."));
+                return false;
+            }
+            // Link do sistema (nunca o do Drive): só desta pessoa, vale 24 h e
+            // confere o pagamento a cada clique.
+            String link = links.criar(l, m.cliente);
+            String motivo = l.tamanho > TAMANHO_MAXIMO
+                    ? "O arquivo tem " + (l.tamanho / MB) + " MB e passa do limite do Telegram (50 MB)."
+                    : "Não consegui mandar o arquivo por aqui agora.";
+            String ext = extensao(l.arquivoNome);
+            String abrir = "pdf".equals(ext) || "txt".equals(ext) ? "📖 Ler online" : "▶️ Abrir online";
+            List<Telegram.Tecla> botoes = LivroLinkResource.ABRE_NO_NAVEGADOR.contains(ext)
+                    ? List.of(Telegram.Tecla.link(abrir, link + "?ler=1"), Telegram.Tecla.link("⬇️ Baixar", link))
+                    : List.of(Telegram.Tecla.link("⬇️ Baixar", link));
+            telegram.enviarMenu(token, chat, legenda + "\n\n" + motivo + " Use o link abaixo: ele é só seu e vale por "
+                    + LinksDeLivro.HORAS + v.t(" horas (depois é só pedir o livro de novo)."), List.of(botoes));
         }
         l.pedidos++;
         LivroPedido p = new LivroPedido();
@@ -604,19 +695,33 @@ public class Biblioteca {
         p.cliente = m.cliente;
         p.momento = OffsetDateTime.now();
         p.persist();
+        return true;
+    }
+
+    // "📚 Dom Casmurro · ✍️ Machado de Assis (1899)"
+    static String legenda(Livro l) {
+        StringBuilder s = new StringBuilder("📚 <b>").append(Telegram.html(l.titulo)).append("</b>");
+        if (l.autor != null) s.append("\n✍️ ").append(Telegram.html(l.autor));
+        if (l.ano != null) s.append(" (").append(l.ano).append(")");
+        if (l.genero != null || l.categoria != null) {
+            s.append("\n🏷 ").append(Telegram.html(l.categoria != null ? l.categoria : l.genero));
+            if (l.categoria != null && l.genero != null && !l.genero.equalsIgnoreCase(l.categoria)) {
+                s.append(" · ").append(Telegram.html(l.genero));
+            }
+        }
+        return s.toString();
     }
 
     // Sobe o arquivo (do Drive ou guardado aqui) para um chat. Devolve a mensagem.
     JsonNode enviarArquivo(Config config, Object chat, Livro l, String legenda, Telegram.Opcoes opcoes) {
-        return enviarArquivo(config.telegramBotToken, config.googleApiKey, chat, l.origem, l.driveId, l.arquivoUrl, l.arquivoNome,
-                legenda, opcoes);
+        return enviarArquivo(config.telegramBotToken, config.googleApiKey, config.googleContaServico, chat, l.origem, l.driveId,
+                l.arquivoUrl, l.arquivoNome, legenda, opcoes);
     }
 
-    JsonNode enviarArquivo(String token, String chaveGoogle, Object chat, String origem, String driveId, String arquivoUrl,
-                           String nome, String legenda, Telegram.Opcoes opcoes) {
+    JsonNode enviarArquivo(String token, String chaveGoogle, String contaGoogle, Object chat, String origem, String driveId,
+                           String arquivoUrl, String nome, String legenda, Telegram.Opcoes opcoes) {
         if (Livro.DRIVE.equals(origem)) {
-            if (chaveGoogle == null) throw new GoogleDrive.ErroDrive("Cadastre a chave do Google", false);
-            Path temp = drive.baixar(chaveGoogle, driveId);
+            Path temp = drive.baixar(drive.credencial(chaveGoogle, contaGoogle), driveId);
             try {
                 return telegram.enviarDocumento(token, chat, temp, nome, legenda, opcoes);
             } finally {

@@ -7,7 +7,10 @@ import br.com.clienteplus.modulos.grupovip.AcessosContrato.EventoAcesso;
 import br.com.clienteplus.modulos.grupovip.MembrosContrato.MensagemJson;
 import br.com.clienteplus.modulos.grupovip.MembrosContrato.Opcao;
 import br.com.clienteplus.modulos.grupovip.MembrosContrato.PlanoJson;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 // Conversões de entidades para o JSON usadas em várias telas.
 final class Visoes {
@@ -19,8 +22,10 @@ final class Visoes {
         int assinantes = (int) base.estados.values().stream()
                 .filter(e -> e.temAcesso() && e.plano() != null && e.plano().id.equals(p.id))
                 .count();
+        Map<UUID, String> permissoes = new HashMap<>();
+        for (PlanoGrupo pg : PlanoGrupo.<PlanoGrupo>list("plano", p)) permissoes.put(pg.grupo.id, pg.permissao);
         return new PlanoJson(p.id, p.nome, p.descricao, numero(p.preco), p.duracaoMeses, p.participaIndicacoes,
-                p.ativo, grupos, assinantes);
+                p.ativo, grupos, assinantes, permissoes);
     }
 
     static MensagemJson mensagem(Mensagem m) {

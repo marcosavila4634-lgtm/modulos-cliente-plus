@@ -35,6 +35,22 @@ public class Livro extends EntidadeDaLoja {
     public String telegramFileId;
     public int pedidos;
 
+    // ---------- Dados do livro (Catalogador) ----------
+    public String autor;
+    // subpasta do Drive (ou o dono escolhe)
+    public String categoria;
+    public String genero;
+    public String sinopse;
+    public String capaUrl;
+    public Integer ano;
+    // "pendente" | "ok" | "nao_encontrado" | "manual"
+    public String dadosStatus = PENDENTE;
+
+    public static final String PENDENTE = "pendente";
+    public static final String OK = "ok";
+    public static final String NAO_ENCONTRADO = "nao_encontrado";
+    public static final String MANUAL = "manual";
+
     @CreationTimestamp
     public OffsetDateTime createdAt;
 }

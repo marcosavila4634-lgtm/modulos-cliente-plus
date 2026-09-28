@@ -19,4 +19,7 @@ public class PlanoGrupo extends EntidadeDaLoja {
     @ManyToOne
     @JoinColumn(name = "grupo_id")
     public Grupo grupo;
+
+    // o que quem assina o plano pode fazer no grupo: "completo" | "sem_midia" | "leitura"
+    public String permissao = Permissoes.COMPLETO;
 }

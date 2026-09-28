@@ -71,8 +71,9 @@ public class GruposResource {
     public record DadosGrupo(String nome, String descricao, String plataforma, String cor, String linkConvite,
                              String telegramChatId, Boolean ativo) {}
 
+    // permissoes: grupoId -> "completo" | "sem_midia" | "leitura" (vazio = completo)
     public record DadosPlano(String nome, String descricao, BigDecimal preco, Integer duracaoMeses,
-                             Boolean participaIndicacoes, Boolean ativo, List<UUID> grupoIds) {}
+                             Boolean participaIndicacoes, Boolean ativo, List<UUID> grupoIds, Map<UUID, String> permissoes) {}
 
     @GET
     @Path("/grupos")
@@ -181,7 +182,7 @@ public class GruposResource {
         p.storeId = storeId;
         preencher(p, dados);
         p.persistAndFlush();
-        ligarGrupos(p, dados.grupoIds());
+        ligarGrupos(p, dados.grupoIds(), dados.permissoes());
         return listar();
     }
 
@@ -195,7 +196,7 @@ public class GruposResource {
         if (p.duracaoMeses != duracaoAntes && Assinatura.count("plano", p) > 0) {
             throw Erro.conflito("Não dá para mudar a periodicidade de um plano que já tem assinaturas. Crie um plano novo.");
         }
-        ligarGrupos(p, dados.grupoIds());
+        ligarGrupos(p, dados.grupoIds(), dados.permissoes());
         automacoes.rodar(storeId);
         return listar();
     }
@@ -215,7 +216,7 @@ public class GruposResource {
         p.ativo = d.ativo() == null || d.ativo();
     }
 
-    private void ligarGrupos(Plano p, List<UUID> grupoIds) {
+    private void ligarGrupos(Plano p, List<UUID> grupoIds, Map<UUID, String> permissoes) {
         Set<UUID> ids = new LinkedHashSet<>(grupoIds != null ? grupoIds : List.of());
         if (ids.isEmpty()) throw Erro.invalido("Escolha pelo menos um grupo que o plano libera");
         PlanoGrupo.delete("plano", p);
@@ -225,6 +226,9 @@ public class GruposResource {
             pg.storeId = storeId;
             pg.plano = p;
             pg.grupo = grupo(gid);
+            String nivel = permissoes != null ? permissoes.get(gid) : null;
+            if (nivel != null && !Permissoes.NIVEIS.contains(nivel)) throw Erro.invalido("Permissão inválida");
+            pg.permissao = nivel != null && Grupo.TELEGRAM.equals(pg.grupo.plataforma) ? nivel : Permissoes.COMPLETO;
             pg.persist();
         }
     }

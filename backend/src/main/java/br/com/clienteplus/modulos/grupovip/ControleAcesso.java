@@ -169,6 +169,7 @@ public class ControleAcesso {
         }
         if (m == null || m.telegramId == null) throw new Telegram.ErroTelegram("Conta do Telegram desconhecida");
         telegram.removerDoGrupo(config.telegramBotToken, g.telegramChatId, m.telegramId);
+        Permissoes.saiu(g, a.cliente);
         marcar(a, Acesso.REMOVIDO);
         registrar(g, a.cliente, "removido", true, motivo);
     }

@@ -18,8 +18,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Alerta } from "../../lib/grupo-vip";
-import { Modal } from "./formulario";
+import { CentralAjuda } from "./Ajuda";
 
 type Props = {
   nomeNegocio: string;
@@ -160,36 +161,9 @@ export function TopbarGrupoVip({ nomeNegocio, iniciais, alertas, paginaVendas, a
         </Link>
       </div>
 
-      {ajuda && <ModalAjuda aoFechar={() => setAjuda(false)} />}
+      {/* portal: a barra do topo tem desfoque, que prenderia a janela dentro dela */}
+      {ajuda && createPortal(<CentralAjuda aoFechar={() => setAjuda(false)} />, document.body)}
     </header>
   );
 }
 
-const guia: [string, string][] = [
-  ["Grupos e planos", "Cadastre seus grupos do Telegram e do WhatsApp e diga quais grupos cada plano libera."],
-  ["Página de vendas", "Divulgue o link: a pessoa escolhe o plano, paga pelo Pix e recebe o acesso."],
-  ["Controle de acesso", "Mostra quem pagou e precisa entrar, e quem não pagou e precisa sair. No Telegram, o robô faz sozinho."],
-  ["Membros", "Ficha de cada membro: pagamentos, grupos, mensagens, indicações. Receba, cancele ou bloqueie."],
-  ["Automação", "Mensagens automáticas (lembrete, atraso, boas-vindas...) e a caixa de saída do WhatsApp."],
-  ["Conteúdos, lives e anúncios", "Publique nos grupos, agende, avise sobre as lives e mande recados para um público."],
-  ["Financeiro", "Receitas do mês, assinaturas, comissões de indicação e pedidos de saque."],
-  ["Configurações", "Dados do negócio, Pix, tolerância de atraso, robô do Telegram e cupons."],
-];
-
-function ModalAjuda({ aoFechar }: { aoFechar: () => void }) {
-  return (
-    <Modal titulo="Como usar o Gestão Plus Grupos VIP" aoFechar={aoFechar} largura="max-w-xl">
-      <ul className="flex flex-col gap-3">
-        {guia.map(([titulo, texto]) => (
-          <li key={titulo} className="rounded-xl border border-gv-line bg-gv-bg/40 px-3 py-2.5">
-            <div className="text-sm font-semibold text-white">{titulo}</div>
-            <p className="mt-0.5 text-xs leading-relaxed text-gv-muted">{texto}</p>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-4 text-xs text-gv-muted">
-        Todo pagamento confirmado entra no Cliente Plus e gera as comissões de indicação dos membros.
-      </p>
-    </Modal>
-  );
-}

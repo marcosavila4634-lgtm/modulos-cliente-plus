@@ -42,6 +42,7 @@ import {
   type Moderacao,
   type PainelTelegram,
 } from "../../lib/grupo-vip-telegram";
+import { BotaoGuia } from "../../components/grupo-vip/Ajuda";
 
 type Aba = "grupos" | "enquetes" | "moderacao";
 type Busca = { aba?: Aba; grupo?: string };
@@ -67,6 +68,7 @@ function PaginaTelegram() {
   return (
     <div className="flex flex-col gap-5 py-4">
       <CabecalhoPagina
+        guia={<BotaoGuia id="robo-admin" />}
         titulo="Telegram"
         descricao="Controle seus grupos do Telegram por aqui: o robô protege os conteúdos, apaga links e palavrões, dá boas-vindas, trava o grupo no horário, organiza os tópicos e faz enquetes."
       />
@@ -465,7 +467,9 @@ function Topicos({ detalhes, aoMudar }: { detalhes: DetalhesGrupo; aoMudar: (d: 
   if (!g.automatico) return null;
   return (
     <Card>
-      <TituloCard icone={Hash}>Tópicos</TituloCard>
+      <TituloCard icone={Hash} acao={<BotaoGuia id="topicos" />}>
+        Tópicos
+      </TituloCard>
       {!forum ? (
         <p className="mt-2 text-[13px] text-gv-muted">
           Tópicos separam o grupo em assuntos (ex.: Avisos, Materiais, Dúvidas) e você escolhe em qual tópico cada conteúdo cai. Para usar: no

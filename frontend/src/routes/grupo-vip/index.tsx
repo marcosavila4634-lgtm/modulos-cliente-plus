@@ -1,4 +1,5 @@
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+import { PrimeirosPassos } from "../../components/grupo-vip/Ajuda";
 import {
   ConteudosMaisAcessados,
   CrescimentoMembros,
@@ -33,6 +34,7 @@ function Dashboard() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] [&>*]:min-w-0">
         <div className="flex flex-col gap-3.5 [&>*]:min-w-0">
           <BoasVindas nome={d.gestor.nome} frase={d.frase} />
+          <PrimeirosPassos />
           <IndicadoresGrupoVip dados={d.indicadores} />
           <Pendencias p={d.pendencias} robo={d.roboConectado} />
           <AtalhosGrupoVip />
