@@ -54,7 +54,7 @@ export const guias = {
     ],
     pronto: <>Toque em <b>Ver no ar</b>: a página mostra as mudanças que você publicou.</>,
     dicas: [
-      <>Para trocar o endereço da página (ex.: <C>meu-grupo-vip</C>), use <b>Configurações</b>.</>,
+      <>O endereço da página (ex.: <C>meu-grupo-vip</C>) é definido na criação da loja. Para mudar, fale com o suporte do Cliente Plus.</>,
       <>Os planos e preços vêm de <b>Grupos e planos</b>. Na página você escolhe quais aparecem e qual fica em destaque.</>,
       <>Errou? Em <b>Versões publicadas</b> você volta para uma versão anterior.</>,
       <>Os membros também divulgam: cada um tem um link de indicação na área do membro e ganha comissão todo mês.</>,

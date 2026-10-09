@@ -4,7 +4,7 @@
 
 import { AvatarAcademia } from "../components/academia/Marcas";
 import { http } from "./http";
-import { novaSecao, periodo, type DadosPagina, type ModuloPagina, type PaginaConfig } from "./pagina";
+import { novaSecao, novoItem, novoTema, periodo, type DadosPagina, type ModuloPagina, type PaginaConfig } from "./pagina";
 
 export type PaginaAcademiaDados = {
   nome: string;
@@ -69,44 +69,44 @@ function normalizar(a: PaginaAcademiaDados): DadosPagina {
 function padrao(a: PaginaAcademiaDados): PaginaConfig {
   const d = normalizar(a);
   return {
-    versao: 1,
-    tema: { fundo: "marinho", cor1: "#7c3aed", cor2: "#ec4899", fonte: "outfit", cantos: "redondos" },
+    modelo: 3,
+    tema: novoTema("cliente-plus", "escuro", { fonte: "outfit" }),
     secoes: [
-      novaSecao("topo", d, {
+      novaSecao("capa", d, {
         titulo: `Treine na ${a.nome}`,
         destaque: a.nome,
         texto: "Musculação, aulas coletivas e professores acompanhando o seu treino. Escolha o seu plano e comece hoje.",
-        capa: "/academia/hero.jpg",
+        imagem: "/academia/hero.jpg",
         escurecer: 55,
-        selos: [
-          { icone: "haltere", texto: "Equipamentos modernos" },
-          { icone: "pessoas", texto: "Professores no salão" },
-        ],
+        selos: [novoItem({ icone: "haltere" as const, texto: "Equipamentos modernos" }), novoItem({ icone: "pessoas" as const, texto: "Professores no salão" })],
       }),
       novaSecao("beneficios", d, {
         titulo: "Por que treinar aqui",
-        itens: [
-          { icone: "haltere", texto: "Musculação completa" },
-          { icone: "pessoas", texto: "Aulas coletivas todos os dias" },
-          { icone: "grafico", texto: "Avaliação física e acompanhamento" },
-          { icone: "alvo", texto: "Treino montado para o seu objetivo" },
-          { icone: "relogio", texto: "Horários que cabem na sua rotina" },
-          { icone: "conversa", texto: "Atendimento pelo WhatsApp" },
-        ],
+        itens: (
+          [
+            ["haltere", "Musculação completa"],
+            ["pessoas", "Aulas coletivas todos os dias"],
+            ["grafico", "Avaliação física e acompanhamento"],
+            ["alvo", "Treino montado para o seu objetivo"],
+            ["relogio", "Horários que cabem na sua rotina"],
+            ["conversa", "Atendimento pelo WhatsApp"],
+          ] as const
+        ).map(([icone, titulo]) => novoItem({ icone, titulo, texto: "" })),
       }),
       novaSecao("planos", d, { titulo: "Planos", botao: "Quero este plano" }),
       novaSecao("aulas", d, { texto: "Venha fazer uma aula experimental." }),
       ...(d.equipe?.length ? [novaSecao("equipe", d)] : []),
       novaSecao("horarios", d),
       novaSecao("localizacao", d),
-      novaSecao("perguntas", d, {
+      novaSecao("duvidas", d, {
         itens: [
-          { pergunta: "Como faço a matrícula?", resposta: "Escolha o plano aqui na página e fale com a gente pelo WhatsApp, ou venha até a recepção." },
-          { pergunta: "Posso fazer uma aula experimental?", resposta: "Pode! Chame no WhatsApp e agende o melhor horário para você." },
-          { pergunta: "Preciso fazer avaliação física?", resposta: "Recomendamos. Com ela, o professor monta o treino certo para o seu objetivo." },
+          novoItem({ titulo: "Como faço a matrícula?", texto: "Escolha o plano aqui na página e fale com a gente pelo WhatsApp, ou venha até a recepção." }),
+          novoItem({ titulo: "Posso fazer uma aula experimental?", texto: "Pode! Chame no WhatsApp e agende o melhor horário para você." }),
+          novoItem({ titulo: "Preciso fazer avaliação física?", texto: "Recomendamos. Com ela, o professor monta o treino certo para o seu objetivo." }),
         ],
       }),
       novaSecao("contato", d, { texto: "Fale com a gente no WhatsApp" }),
+      novaSecao("rodape", d),
     ],
   };
 }
@@ -114,9 +114,9 @@ function padrao(a: PaginaAcademiaDados): PaginaConfig {
 export const paginaAcademia: ModuloPagina<PaginaAcademiaDados> = {
   modulo: "academia",
   titulo: "Página da academia",
-  tipos: ["aviso", "beneficios", "passos", "texto", "video", "depoimentos", "imagens", "perguntas", "equipe", "aulas", "horarios", "localizacao", "chamada", "contato"],
+  tipos: ["capa", "aviso", "destaques", "beneficios", "comoFunciona", "sobre", "video", "depoimentos", "galeria", "duvidas", "equipe", "aulas", "horarios", "localizacao", "chamada", "livre", "contato", "rodape"],
   normalizar,
   padrao,
   acento: ["#7c3aed", "#ec4899"],
-  ondeMudar: { endereco: "/academia/configuracoes", planos: null, whatsapp: "/academia/configuracoes" },
+  ondeMudar: { planos: null, whatsapp: "/academia/configuracoes" },
 };

@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Treinos: painel (alunos x fichas, modelos) e fichas de treino.
 @Path("/academia")
@@ -29,8 +28,9 @@ public class TreinosResource {
 
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Treinos treinos;
@@ -42,13 +42,13 @@ public class TreinosResource {
     @GET
     @Path("/treinos")
     public PainelTreinos painel() {
-        List<Ficha> fichas = Ficha.list("storeId = ?1 and status = ?2", storeId, Ficha.ATIVA);
+        List<Ficha> fichas = Ficha.list("storeId = ?1 and status = ?2", lojaAtual.id(), Ficha.ATIVA);
         Map<UUID, Ficha> fichaPorAluno = fichas.stream()
                 .filter(f -> !f.modelo())
                 .collect(Collectors.toMap(f -> f.cliente.id, Function.identity(), (a, b) -> a));
 
         List<AlunoTreino> alunos = Assinatura.<Assinatura>list(
-                        "storeId = ?1 and status = ?2", storeId, Assinatura.ATIVA)
+                        "storeId = ?1 and status = ?2", lojaAtual.id(), Assinatura.ATIVA)
                 .stream()
                 .map(m -> m.cliente)
                 .distinct()
@@ -95,28 +95,28 @@ public class TreinosResource {
     @Transactional
     public FichaJson criar(NovaFicha pedido) {
         Cliente aluno = pedido != null && pedido.alunoId() != null
-                ? matriculas.aluno(storeId, pedido.alunoId())
+                ? matriculas.aluno(lojaAtual.id(), pedido.alunoId())
                 : null;
-        return Treinos.json(treinos.criarFicha(storeId, pedido, aluno));
+        return Treinos.json(treinos.criarFicha(lojaAtual.id(), pedido, aluno));
     }
 
     @GET
     @Path("/fichas/{id}")
     public FichaJson buscar(@PathParam("id") UUID id) {
-        return Treinos.json(treinos.ficha(storeId, id));
+        return Treinos.json(treinos.ficha(lojaAtual.id(), id));
     }
 
     @PUT
     @Path("/fichas/{id}")
     @Transactional
     public FichaJson salvar(@PathParam("id") UUID id, DadosFicha dados) {
-        return Treinos.json(treinos.salvarFicha(storeId, id, dados));
+        return Treinos.json(treinos.salvarFicha(lojaAtual.id(), id, dados));
     }
 
     // Modelo: exclui. Ficha de aluno: encerra.
     @POST
     @Path("/fichas/{id}/excluir")
     public void excluir(@PathParam("id") UUID id) {
-        treinos.excluirFicha(storeId, id);
+        treinos.excluirFicha(lojaAtual.id(), id);
     }
 }

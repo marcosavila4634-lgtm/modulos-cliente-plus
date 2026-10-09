@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { Check, ChevronLeft, ChevronRight, Clock, MapPin, Pencil, Plus, Trash2, UserRound, UsersRound } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiLutas, type ModalidadeJson, type Publico } from "../../../lib/artes-marciais";
+import { ehArtesMarciais } from "../../../lib/modulo-atual";
 import { Botao, Campo, classeInput, MensagemErro, mensagemDe, Modal } from "../../../components/academia/formulario";
 import { Abas, CabecalhoPagina, Card, Vazio } from "../../../components/academia/ui";
 import {
@@ -284,6 +286,21 @@ function ModalAula({
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Artes Marciais: modalidade e público da aula (as presenças contam para a faixa)
+  const lutas = ehArtesMarciais();
+  const [modalidades, setModalidades] = useState<ModalidadeJson[]>([]);
+  const [daModalidade, setDaModalidade] = useState<{ modalidadeId: string; publico: Publico }>({
+    modalidadeId: "",
+    publico: "todos",
+  });
+  useEffect(() => {
+    if (!lutas) return;
+    Promise.all([apiLutas.modalidades(), apiLutas.aulasModalidades()]).then(([m, am]) => {
+      setModalidades(m.filter((x) => x.ativo));
+      const atual = am.find((x) => x.aulaId === aula?.id);
+      setDaModalidade({ modalidadeId: atual?.modalidadeId ?? "", publico: atual?.publico ?? "todos" });
+    });
+  }, [lutas, aula?.id]);
   const mudar = <K extends keyof DadosAula>(k: K, v: DadosAula[K]) => setD((x) => ({ ...x, [k]: v }));
   const mudarHorario = (i: number, campos: Partial<DadosAula["horarios"][number]>) =>
     mudar(
@@ -296,8 +313,8 @@ function ModalAula({
     setSalvando(true);
     setErro(null);
     try {
-      if (aula) await apiAgenda.atualizarAula(aula.id, d);
-      else await apiAgenda.cadastrarAula(d);
+      const salva = aula ? await apiAgenda.atualizarAula(aula.id, d) : await apiAgenda.cadastrarAula(d);
+      if (lutas) await apiLutas.modalidadeDaAula(salva.id, daModalidade.modalidadeId || null, daModalidade.publico);
       aoSalvar();
     } catch (e) {
       setErro(mensagemDe(e));
@@ -315,7 +332,7 @@ function ModalAula({
               className={classeInput}
               value={d.nome}
               onChange={(e) => mudar("nome", e.target.value)}
-              placeholder="Ex.: Spinning"
+              placeholder={lutas ? "Ex.: Jiu-Jitsu (Adulto)" : "Ex.: Spinning"}
             />
           </Campo>
           <Campo rotulo="Professor">
@@ -422,6 +439,35 @@ function ModalAula({
             </p>
           )}
         </div>
+        {lutas && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo rotulo="Modalidade (a presença conta para a faixa)">
+              <select
+                className={classeInput}
+                value={daModalidade.modalidadeId}
+                onChange={(e) => setDaModalidade({ ...daModalidade, modalidadeId: e.target.value })}
+              >
+                <option value="">Nenhuma</option>
+                {modalidades.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo rotulo="Público">
+              <select
+                className={classeInput}
+                value={daModalidade.publico}
+                onChange={(e) => setDaModalidade({ ...daModalidade, publico: e.target.value as Publico })}
+              >
+                <option value="todos">Todas as idades</option>
+                <option value="adulto">Adulto</option>
+                <option value="infantil">Kids</option>
+              </select>
+            </Campo>
+          </div>
+        )}
         {aula && (
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input

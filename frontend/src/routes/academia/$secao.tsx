@@ -1,10 +1,10 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { Construction } from "lucide-react";
-import { menuAcademia } from "../../components/academia/menu";
+import { menuDoModulo } from "../../components/academia/menu";
 
 export const Route = createFileRoute("/academia/$secao")({
   loader: ({ params }) => {
-    const item = menuAcademia.find((i) => i.secao === params.secao);
+    const item = menuDoModulo().find((i) => i.secao === params.secao);
     if (!item) throw notFound();
     return item.rotulo;
   },
@@ -20,7 +20,7 @@ function SecaoEmConstrucao() {
         <Construction className="mx-auto size-9 text-violet-400" />
         <h2 className="mt-3 font-poppins text-lg font-semibold text-white">Tela em construção</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-ac-muted">
-          Esta parte do módulo Academia ainda vai ser criada.
+          Esta parte do módulo ainda vai ser criada.
         </p>
       </div>
     </div>

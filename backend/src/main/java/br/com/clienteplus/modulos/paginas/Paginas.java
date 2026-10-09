@@ -24,12 +24,15 @@ import java.util.UUID;
 @ApplicationScoped
 public class Paginas {
 
+    // endereço público (slug): 3 a 40 letras minúsculas, números ou hífen
+    public static final String ENDERECO = "[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]";
+
     static final int MAX_CARACTERES = 300_000;
     static final int MAX_SECOES = 40;
     static final int MAX_VERSOES = 20;
     // campos que viram link ou imagem na página
-    static final Set<String> CAMPOS_ENDERECO = Set.of("logo", "capa", "imagem", "foto", "url", "link", "instagram",
-            "youtube", "tiktok", "facebook", "site");
+    static final Set<String> CAMPOS_ENDERECO = Set.of("logo", "capa", "imagem", "foto", "url", "link", "alvo",
+            "alvoSecundario", "instagram", "youtube", "tiktok", "facebook", "site");
 
     @Inject
     ObjectMapper json;
@@ -98,6 +101,12 @@ public class Paginas {
             throw Erro.naoEncontrado("Versão não encontrada");
         }
         paginaOuNova(m).rascunho = v.pagina;
+    }
+
+    public static String endereco(String texto) {
+        String e = texto != null ? texto.trim().toLowerCase(Locale.ROOT) : "";
+        if (!e.matches(ENDERECO)) throw Erro.invalido("Endereço: de 3 a 40 letras minúsculas, números ou hífen");
+        return e;
     }
 
     // ---------- apoio ----------

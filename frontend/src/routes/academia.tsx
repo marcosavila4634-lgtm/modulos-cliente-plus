@@ -3,10 +3,21 @@ import { useState } from "react";
 import { SidebarAcademia } from "../components/academia/SidebarAcademia";
 import { TopbarAcademia } from "../components/academia/TopbarAcademia";
 import { buscarDashboard } from "../lib/academia";
+import { apiLutas } from "../lib/artes-marciais";
+import { ehArtesMarciais } from "../lib/modulo-atual";
 
-// Layout do módulo Academia (Gestão Plus Academia): menu lateral + barra do topo.
+// Layout do módulo Academia (Gestão Plus Academia) e do Artes Marciais (as
+// mesmas telas em /artes-marciais, ver lib/modulo-atual.ts): menu lateral +
+// barra do topo.
 export const Route = createFileRoute("/academia")({
-  loader: buscarDashboard,
+  // No Artes Marciais (/artes-marciais) também carrega o painel de luta.
+  loader: async () => {
+    const [academia, lutas] = await Promise.all([
+      buscarDashboard(),
+      ehArtesMarciais() ? apiLutas.dashboard() : Promise.resolve(null),
+    ]);
+    return { ...academia, lutas };
+  },
   component: LayoutAcademia,
 });
 
@@ -40,14 +51,32 @@ function LayoutAcademia() {
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <TopbarAcademia
           nomeAcademia={d.academia.nome}
-          alertas={d.alertas}
+          alertas={d.lutas ? [...d.alertas, ...d.lutas.alertas] : d.alertas}
           demo={d.demo}
           aoAlternarMenu={alternarMenu}
         />
         <main className="flex-1 px-4 pt-2 pb-8 md:px-6 print:px-0">
           <Outlet />
         </main>
+        {d.lutas && <RodapeLutas lema={d.lutas.lema} />}
       </div>
     </div>
+  );
+}
+
+// Faixa do rodapé do Artes Marciais (lema da academia).
+function RodapeLutas({ lema }: { lema: string }) {
+  return (
+    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-ac-line px-4 py-3 text-[10.5px] font-semibold tracking-[0.25em] text-ac-muted uppercase md:px-6 print:hidden">
+      <span className="flex items-center gap-3">
+        <svg viewBox="0 0 40 14" className="h-3.5 w-10" aria-hidden>
+          <path d="M0 14 L22 0 L18 8 L40 4 L12 14 Z" fill="#dc2626" />
+        </svg>
+        {lema}
+      </span>
+      <span className="tracking-[0.2em]">
+        Gestão Plus <span className="mx-1 text-ac-line">|</span> Artes Marciais
+      </span>
+    </footer>
   );
 }

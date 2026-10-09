@@ -156,14 +156,6 @@ public class Configuracoes {
             throw Erro.invalido("WhatsApp inválido: use DDD + número");
         }
         c.whatsapp = zap.isEmpty() ? null : zap;
-        if (d.slug() != null) {
-            String slug = d.slug().trim().toLowerCase();
-            if (!slug.matches(SLUG)) throw Erro.invalido("Endereço da página: de 3 a 40 letras minúsculas, números ou hífen");
-            if (AcademiaConfig.count("slug = ?1 and storeId <> ?2", slug, storeId) > 0) {
-                throw Erro.invalido("Este endereço de página já está em uso");
-            }
-            c.slug = slug;
-        }
         c.capacidade = d.capacidade();
         c.validadeFichaSemanas = d.validadeFichaSemanas();
         c.reavaliacaoDias = d.reavaliacaoDias();
@@ -197,8 +189,9 @@ public class Configuracoes {
         }
     }
 
-    static final String SLUG = "[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]";
-
+    // Endereço da página pública (/a/<slug>): criado aqui com o nome da
+    // academia quando a loja é criada. Depois, só a plataforma muda
+    // (paginas/PlataformaResource); o lojista não.
     // "Academia Prime" -> "academia-prime" (com número no fim se já existir).
     private static String slugLivre(String nome, UUID storeId) {
         String base = java.text.Normalizer.normalize(nome == null ? "" : nome, java.text.Normalizer.Form.NFD)
@@ -207,7 +200,7 @@ public class Configuracoes {
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("^-+|-+$", "");
         if (base.length() > 34) base = base.substring(0, 34).replaceAll("-+$", "");
-        if (!base.matches(SLUG)) base = "academia";
+        if (!base.matches(br.com.clienteplus.modulos.paginas.Paginas.ENDERECO)) base = "academia";
         String slug = base;
         for (int n = 2; AcademiaConfig.count("slug = ?1 and storeId <> ?2", slug, storeId) > 0; n++) slug = base + "-" + n;
         return slug;

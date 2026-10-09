@@ -1,8 +1,12 @@
-import { ArrowDown, ArrowUp, Film, ImageUp, LoaderCircle, Plus, Trash2, X } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type Modifier } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Film, GripVertical, ImageUp, LoaderCircle, Plus, Trash2, X } from "lucide-react";
+import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { enviarArquivo } from "../../lib/academia-treinos";
-import { icones, type IdIcone } from "../../lib/pagina";
+import { icones, novoId, type IdIcone } from "../../lib/pagina";
+import { ehCor } from "../../lib/pagina-cores";
 
 // Peças do formulário do editor de páginas. Cores neutras para servir no
 // painel de qualquer módulo; a cor de destaque vem de --ed-1/--ed-2
@@ -21,13 +25,55 @@ export const classeBotaoEd = (primario = false, pequeno = false) =>
       : "border border-white/10 bg-white/[0.04] text-slate-200 hover:border-white/25 hover:text-white"
   }`;
 
-export function Campo({ rotulo, dica, children }: { rotulo: string; dica?: ReactNode; children: ReactNode }) {
+// Como o editor envia fotos e vídeos. No laboratório é POST /api/arquivos; em
+// outro sistema, basta envolver o editor com <EnvioDeArquivo.Provider value={...}>.
+export type Envio = (arquivo: File, aoProgredir?: (pct: number) => void) => Promise<{ url: string }>;
+export const EnvioDeArquivo = createContext<Envio>(enviarArquivo);
+
+// grupo = o campo tem vários controles (lista, botões): não usa <label>,
+// senão tocar em qualquer lugar acionaria o primeiro controle.
+export function Campo({ rotulo, dica, grupo = false, children }: { rotulo: string; dica?: ReactNode; grupo?: boolean; children: ReactNode }) {
+  const Caixa = grupo ? "div" : "label";
   return (
-    <label className="flex min-w-0 flex-col gap-1.5">
+    <Caixa className="flex min-w-0 flex-col gap-1.5">
       <span className="text-xs font-medium text-slate-300">{rotulo}</span>
       {children}
       {dica && <span className="text-[11.5px] leading-snug text-slate-500">{dica}</span>}
-    </label>
+    </Caixa>
+  );
+}
+
+// Escolher uma cor: o quadradinho abre as cores e o código (#rrggbb) pode ser colado.
+export function CampoCor({ valor, aoMudar, aoLimpar }: { valor: string; aoMudar: (v: string) => void; aoLimpar?: () => void }) {
+  const [texto, setTexto] = useState<string | null>(null);
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="color"
+        value={ehCor(valor) ? valor : "#888888"}
+        onChange={(e) => aoMudar(e.target.value)}
+        className="size-10 shrink-0 cursor-pointer rounded-xl border border-white/10 bg-black/25 p-1"
+      />
+      <input
+        className={`${classeEntrada} w-28 font-mono uppercase`}
+        value={texto ?? valor}
+        maxLength={7}
+        spellCheck={false}
+        onFocus={() => setTexto(valor)}
+        onBlur={() => setTexto(null)}
+        onChange={(e) => {
+          const v = e.target.value.trim();
+          setTexto(v);
+          const cor = v.startsWith("#") ? v : `#${v}`;
+          if (ehCor(cor)) aoMudar(cor.toLowerCase());
+        }}
+      />
+      {aoLimpar && (
+        <button type="button" onClick={aoLimpar} className="text-[12px] text-slate-400 underline underline-offset-2 hover:text-white">
+          Tirar
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -141,6 +187,7 @@ export function CampoArquivo({
   rotuloVazio?: string;
 }) {
   const entrada = useRef<HTMLInputElement>(null);
+  const enviar = useContext(EnvioDeArquivo);
   const [progresso, setProgresso] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -149,7 +196,7 @@ export function CampoArquivo({
     setErro(null);
     setProgresso(0);
     try {
-      aoMudar((await enviarArquivo(arquivo, setProgresso)).url);
+      aoMudar((await enviar(arquivo, setProgresso)).url);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível enviar");
     } finally {
@@ -205,9 +252,68 @@ export function CampoArquivo({
   );
 }
 
-// Lista de itens (benefícios, depoimentos, perguntas...) com subir/descer,
-// apagar e adicionar.
-export function Lista<T>({
+// ---------- Arrastar para mudar a ordem ----------
+
+const soNaVertical: Modifier = ({ transform }) => ({ ...transform, x: 0 });
+
+// Envolve uma lista em que os itens mudam de ordem arrastando pela alça
+// (com o mouse, o dedo ou o teclado: Espaço pega, setas movem, Espaço solta).
+export function Ordenavel({ ids, aoMover, children }: { ids: string[]; aoMover: (de: number, para: number) => void; children: ReactNode }) {
+  const sensores = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const aoSoltar = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const de = ids.indexOf(String(active.id));
+    const para = ids.indexOf(String(over.id));
+    if (de >= 0 && para >= 0) aoMover(de, para);
+  };
+  return (
+    <DndContext sensors={sensores} collisionDetection={closestCenter} modifiers={[soNaVertical]} onDragEnd={aoSoltar}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+// Um item dentro de <Ordenavel>: `caixa` vai no elemento do item e `alca` no botão de arrastar.
+export function useItemOrdenavel(id: string) {
+  const s = useSortable({ id });
+  const estilo: CSSProperties = {
+    transform: CSS.Translate.toString(s.transform),
+    transition: s.transition,
+    position: "relative",
+    zIndex: s.isDragging ? 20 : undefined,
+  };
+  return { caixa: { ref: s.setNodeRef, style: estilo }, alca: { ref: s.setActivatorNodeRef, ...s.attributes, ...s.listeners }, arrastando: s.isDragging };
+}
+
+export function Alca({ alca, className = "" }: { alca: ReturnType<typeof useItemOrdenavel>["alca"]; className?: string }) {
+  return (
+    <button
+      type="button"
+      title="Arraste para mudar a ordem"
+      aria-label="Arraste para mudar a ordem"
+      {...alca}
+      className={`grid size-7 shrink-0 cursor-grab touch-none place-items-center rounded-lg text-slate-500 hover:bg-white/10 hover:text-white active:cursor-grabbing ${className}`}
+    >
+      <GripVertical className="size-4" />
+    </button>
+  );
+}
+
+export function mudarOrdem<T>(lista: T[], de: number, para: number): T[] {
+  const n = [...lista];
+  const [x] = n.splice(de, 1);
+  n.splice(para, 0, x);
+  return n;
+}
+
+// Lista de itens (benefícios, depoimentos, perguntas...): arrastar para mudar
+// a ordem, apagar e adicionar.
+export function Lista<T extends { id: string }>({
   itens,
   aoMudar,
   novo,
@@ -217,40 +323,41 @@ export function Lista<T>({
 }: {
   itens: T[];
   aoMudar: (itens: T[]) => void;
-  novo: () => T;
+  novo: () => Omit<T, "id">;
   max?: number;
   rotuloNovo?: string;
   children: (item: T, muda: (patch: Partial<T>) => void, indice: number) => ReactNode;
 }) {
-  const mover = (i: number, d: number) => {
-    const n = [...itens];
-    const [x] = n.splice(i, 1);
-    n.splice(i + d, 0, x);
-    aoMudar(n);
-  };
   return (
     <div className="flex flex-col gap-2">
-      {itens.map((item, i) => (
-        <div key={i} className="flex gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2">
-          <div className="min-w-0 flex-1">{children(item, (patch) => aoMudar(itens.map((x, k) => (k === i ? { ...x, ...patch } : x))), i)}</div>
-          <div className="flex shrink-0 flex-col gap-0.5">
-            <BotaoIcone rotulo="Subir" disabled={i === 0} onClick={() => mover(i, -1)}>
-              <ArrowUp className="size-3.5" />
-            </BotaoIcone>
-            <BotaoIcone rotulo="Descer" disabled={i === itens.length - 1} onClick={() => mover(i, 1)}>
-              <ArrowDown className="size-3.5" />
-            </BotaoIcone>
-            <BotaoIcone rotulo="Apagar" perigo onClick={() => aoMudar(itens.filter((_, k) => k !== i))}>
-              <Trash2 className="size-3.5" />
-            </BotaoIcone>
-          </div>
-        </div>
-      ))}
+      <Ordenavel ids={itens.map((x) => x.id)} aoMover={(de, para) => aoMudar(mudarOrdem(itens, de, para))}>
+        {itens.map((item, i) => (
+          <ItemDaLista key={item.id} id={item.id} aoApagar={() => aoMudar(itens.filter((x) => x.id !== item.id))}>
+            {children(item, (patch) => aoMudar(itens.map((x) => (x.id === item.id ? { ...x, ...patch } : x))), i)}
+          </ItemDaLista>
+        ))}
+      </Ordenavel>
       {itens.length < max && (
-        <button type="button" onClick={() => aoMudar([...itens, novo()])} className={`${classeBotaoEd(false, true)} w-fit`}>
+        <button type="button" onClick={() => aoMudar([...itens, { ...novo(), id: novoId() } as T])} className={`${classeBotaoEd(false, true)} w-fit`}>
           <Plus className="size-3.5" /> {rotuloNovo}
         </button>
       )}
+    </div>
+  );
+}
+
+function ItemDaLista({ id, aoApagar, children }: { id: string; aoApagar: () => void; children: ReactNode }) {
+  const { caixa, alca, arrastando } = useItemOrdenavel(id);
+  return (
+    <div
+      {...caixa}
+      className={`flex gap-1.5 rounded-xl border p-2 ${arrastando ? "border-(--ed-2) bg-[#131a2c] shadow-xl" : "border-white/[0.07] bg-white/[0.02]"}`}
+    >
+      <Alca alca={alca} className="mt-1.5 -ml-1" />
+      <div className="min-w-0 flex-1">{children}</div>
+      <BotaoIcone rotulo="Apagar" perigo onClick={aoApagar}>
+        <Trash2 className="size-3.5" />
+      </BotaoIcone>
     </div>
   );
 }

@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Controle de acesso: regras, alunos bloqueados, dispositivos (catracas e
 // leitores) e histórico de entradas.
@@ -41,8 +40,9 @@ public class AcessoResource {
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
     private static final Set<String> TIPOS = Set.of("catraca", "leitor_facial", "leitor_biometrico", "totem_qr");
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Configuracoes configuracoes;
@@ -55,19 +55,19 @@ public class AcessoResource {
 
     @GET
     public PainelAcesso painel() {
-        AcademiaConfig cfg = configuracoes.config(storeId);
+        AcademiaConfig cfg = configuracoes.config(lojaAtual.id());
         LocalDate hoje = Matriculas.hoje();
 
         Map<UUID, Long> acessosHojePorDispositivo = Acesso.<Acesso>list(
-                        "storeId = ?1 and momento >= ?2 and dispositivo is not null", storeId, Acessos.inicioDo(hoje))
+                        "storeId = ?1 and momento >= ?2 and dispositivo is not null", lojaAtual.id(), Acessos.inicioDo(hoje))
                 .stream()
                 .collect(Collectors.groupingBy(a -> a.dispositivo.id, Collectors.counting()));
-        List<DispositivoJson> dispositivos = Dispositivo.<Dispositivo>list("storeId = ?1 order by createdAt", storeId)
+        List<DispositivoJson> dispositivos = Dispositivo.<Dispositivo>list("storeId = ?1 order by createdAt", lojaAtual.id())
                 .stream()
                 .map(d -> json(d, acessosHojePorDispositivo.getOrDefault(d.id, 0L).intValue()))
                 .toList();
 
-        List<AcessoJson> historico = Acesso.<Acesso>find("storeId = ?1 order by momento desc", storeId)
+        List<AcessoJson> historico = Acesso.<Acesso>find("storeId = ?1 order by momento desc", lojaAtual.id())
                 .page(0, 200)
                 .list()
                 .stream()
@@ -76,8 +76,8 @@ public class AcessoResource {
 
         return new PainelAcesso(
                 regras(cfg),
-                configuracoes.horarios(storeId).stream().map(Configuracoes::json).toList(),
-                configuracoes.abertoAgora(storeId),
+                configuracoes.horarios(lojaAtual.id()).stream().map(Configuracoes::json).toList(),
+                configuracoes.abertoAgora(lojaAtual.id()),
                 bloqueados(cfg, hoje),
                 dispositivos,
                 historico);
@@ -89,10 +89,10 @@ public class AcessoResource {
         if (cfg.bloquearInadimplentes) {
             Map<UUID, Pagamento> maisAntigaPorMatricula = Pagamento.<Pagamento>list(
                             "storeId = ?1 and status = ?2 and assinatura is not null order by vencimento",
-                            storeId, Pagamento.PENDENTE)
+                            lojaAtual.id(), Pagamento.PENDENTE)
                     .stream()
                     .collect(Collectors.toMap(p -> p.assinatura.id, Function.identity(), (a, b) -> a));
-            for (Assinatura m : Assinatura.<Assinatura>list("storeId = ?1 and status = ?2", storeId, Assinatura.ATIVA)) {
+            for (Assinatura m : Assinatura.<Assinatura>list("storeId = ?1 and status = ?2", lojaAtual.id(), Assinatura.ATIVA)) {
                 Pagamento p = maisAntigaPorMatricula.get(m.id);
                 if (p == null) continue;
                 long dias = ChronoUnit.DAYS.between(p.vencimento, hoje);
@@ -103,7 +103,7 @@ public class AcessoResource {
                 }
             }
         }
-        for (Bloqueio b : Bloqueio.<Bloqueio>list("storeId = ?1 and removidoEm is null", storeId)) {
+        for (Bloqueio b : Bloqueio.<Bloqueio>list("storeId = ?1 and removidoEm is null", lojaAtual.id())) {
             porAluno.put(b.cliente.id, new AlunoBloqueado(b.cliente.id, b.cliente.nome, "bloqueio_manual", b.motivo,
                     Acessos.dia(b.createdAt), true, b.id));
         }
@@ -122,7 +122,7 @@ public class AcessoResource {
     @Transactional
     public Regras salvarRegras(DadosRegras d) {
         if (d == null) throw Erro.invalido("Preencha as regras");
-        AcademiaConfig c = configuracoes.config(storeId);
+        AcademiaConfig c = configuracoes.config(lojaAtual.id());
         if (d.toleranciaAtrasoDias() != null) {
             if (d.toleranciaAtrasoDias() < 0 || d.toleranciaAtrasoDias() > 60) {
                 throw Erro.invalido("Tolerância: de 0 a 60 dias");
@@ -149,10 +149,10 @@ public class AcessoResource {
         if (pedido == null || pedido.alunoId() == null) throw Erro.invalido("Escolha o aluno");
         String motivo = pedido.motivo() != null ? pedido.motivo().trim() : "";
         if (motivo.length() < 3) throw Erro.invalido("Informe o motivo do bloqueio");
-        Cliente aluno = matriculas.aluno(storeId, pedido.alunoId());
+        Cliente aluno = matriculas.aluno(lojaAtual.id(), pedido.alunoId());
         if (acessos.bloqueioAtivo(aluno) != null) throw Erro.conflito("Este aluno já está bloqueado");
         Bloqueio b = new Bloqueio();
-        b.storeId = storeId;
+        b.storeId = lojaAtual.id();
         b.cliente = aluno;
         b.motivo = motivo;
         b.persist();
@@ -163,7 +163,7 @@ public class AcessoResource {
     @Transactional
     public void desbloquear(@PathParam("id") UUID id) {
         Bloqueio b = Bloqueio.findById(id);
-        if (b == null || !b.storeId.equals(storeId)) throw Erro.naoEncontrado("Bloqueio não encontrado");
+        if (b == null || !b.storeId.equals(lojaAtual.id())) throw Erro.naoEncontrado("Bloqueio não encontrado");
         if (b.removidoEm == null) b.removidoEm = OffsetDateTime.now();
     }
 
@@ -174,7 +174,7 @@ public class AcessoResource {
     @Transactional
     public DispositivoJson cadastrarDispositivo(DadosDispositivo d) {
         Dispositivo disp = new Dispositivo();
-        disp.storeId = storeId;
+        disp.storeId = lojaAtual.id();
         disp.token = UUID.randomUUID().toString().replace("-", "");
         disp.ativo = true;
         preencher(disp, d);
@@ -187,7 +187,7 @@ public class AcessoResource {
     @Transactional
     public DispositivoJson atualizarDispositivo(@PathParam("id") UUID id, DadosDispositivo d) {
         Dispositivo disp = Dispositivo.findById(id);
-        if (disp == null || !disp.storeId.equals(storeId)) throw Erro.naoEncontrado("Dispositivo não encontrado");
+        if (disp == null || !disp.storeId.equals(lojaAtual.id())) throw Erro.naoEncontrado("Dispositivo não encontrado");
         preencher(disp, d);
         return json(disp, 0);
     }

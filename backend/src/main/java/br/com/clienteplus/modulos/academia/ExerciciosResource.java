@@ -14,7 +14,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Biblioteca de exercícios da academia. A busca e os filtros são feitos na tela.
 @Path("/academia/exercicios")
@@ -23,15 +22,16 @@ public class ExerciciosResource {
 
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Treinos treinos;
 
     @GET
     public List<ExercicioJson> listar() {
-        return Exercicio.<Exercicio>list("storeId", storeId).stream()
+        return Exercicio.<Exercicio>list("storeId", lojaAtual.id()).stream()
                 .sorted(Comparator.comparing((Exercicio e) -> e.nome, ALFABETICA))
                 .map(Treinos::json)
                 .toList();
@@ -39,12 +39,12 @@ public class ExerciciosResource {
 
     @POST
     public ExercicioJson cadastrar(DadosExercicio dados) {
-        return Treinos.json(treinos.salvarExercicio(storeId, null, dados));
+        return Treinos.json(treinos.salvarExercicio(lojaAtual.id(), null, dados));
     }
 
     @PUT
     @Path("/{id}")
     public ExercicioJson atualizar(@PathParam("id") UUID id, DadosExercicio dados) {
-        return Treinos.json(treinos.salvarExercicio(storeId, id, dados));
+        return Treinos.json(treinos.salvarExercicio(lojaAtual.id(), id, dados));
     }
 }

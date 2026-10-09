@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Alunos do módulo Academia (clientes do Cliente Plus) e suas matrículas.
 @Path("/academia/alunos")
@@ -30,9 +29,9 @@ public class AlunosResource {
 
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
 
-    // Loja de exemplo, até existir login (application.properties).
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Matriculas matriculas;
@@ -45,17 +44,17 @@ public class AlunosResource {
     @GET
     public ListaAlunos listar() {
         Map<UUID, Assinatura> ativaPorAluno = Assinatura.<Assinatura>list(
-                        "storeId = ?1 and status = ?2", storeId, Assinatura.ATIVA)
+                        "storeId = ?1 and status = ?2", lojaAtual.id(), Assinatura.ATIVA)
                 .stream()
                 .collect(Collectors.toMap(a -> a.cliente.id, Function.identity(), (a, b) -> a));
 
         // A mensalidade em aberto mais antiga de cada matrícula.
         Map<UUID, Pagamento> proximaPorMatricula = Pagamento.<Pagamento>list(
-                        "storeId = ?1 and status = ?2 and assinatura is not null order by vencimento", storeId, Pagamento.PENDENTE)
+                        "storeId = ?1 and status = ?2 and assinatura is not null order by vencimento", lojaAtual.id(), Pagamento.PENDENTE)
                 .stream()
                 .collect(Collectors.toMap(p -> p.assinatura.id, Function.identity(), (a, b) -> a));
 
-        List<AlunoResumo> alunos = Cliente.<Cliente>list("storeId", storeId).stream()
+        List<AlunoResumo> alunos = Cliente.<Cliente>list("storeId", lojaAtual.id()).stream()
                 .sorted(Comparator.comparing((Cliente c) -> c.nome, ALFABETICA))
                 .map(c -> {
                     Assinatura ativa = ativaPorAluno.get(c.id);
@@ -86,42 +85,42 @@ public class AlunosResource {
     @GET
     @Path("/{id}")
     public AlunoDetalhe buscar(@PathParam("id") UUID id) {
-        return matriculas.detalhe(matriculas.aluno(storeId, id));
+        return matriculas.detalhe(matriculas.aluno(lojaAtual.id(), id));
     }
 
     // Dias treinados (marcados pelo aluno na área do cliente) e evolução de carga.
     @GET
     @Path("/{id}/treinos-feitos")
     public TreinosContrato.TreinosFeitos treinosFeitos(@PathParam("id") UUID id) {
-        return registros.treinosFeitos(matriculas.aluno(storeId, id));
+        return registros.treinosFeitos(matriculas.aluno(lojaAtual.id(), id));
     }
 
     @POST
     @Transactional
     public AlunoDetalhe cadastrar(DadosAluno dados) {
-        return matriculas.detalhe(matriculas.cadastrar(storeId, dados));
+        return matriculas.detalhe(matriculas.cadastrar(lojaAtual.id(), dados));
     }
 
     @PUT
     @Path("/{id}")
     @Transactional
     public AlunoDetalhe atualizar(@PathParam("id") UUID id, DadosAluno dados) {
-        return matriculas.detalhe(matriculas.atualizar(storeId, id, dados));
+        return matriculas.detalhe(matriculas.atualizar(lojaAtual.id(), id, dados));
     }
 
     @POST
     @Path("/{id}/matricula")
     @Transactional
     public AlunoDetalhe matricular(@PathParam("id") UUID id, NovaMatricula pedido) {
-        matriculas.matricular(storeId, id, pedido);
-        return matriculas.detalhe(matriculas.aluno(storeId, id));
+        matriculas.matricular(lojaAtual.id(), id, pedido);
+        return matriculas.detalhe(matriculas.aluno(lojaAtual.id(), id));
     }
 
     @POST
     @Path("/{id}/matricula/cancelar")
     @Transactional
     public AlunoDetalhe cancelarMatricula(@PathParam("id") UUID id) {
-        matriculas.cancelarMatricula(storeId, id);
-        return matriculas.detalhe(matriculas.aluno(storeId, id));
+        matriculas.cancelarMatricula(lojaAtual.id(), id);
+        return matriculas.detalhe(matriculas.aluno(lojaAtual.id(), id));
     }
 }

@@ -43,7 +43,6 @@ public final class AcessoContrato {
             String endereco,
             String cnpj,
             String whatsapp,
-            String slug,
             Integer capacidade,
             Integer validadeFichaSemanas,
             Integer reavaliacaoDias,

@@ -6,15 +6,14 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Path("/academia")
 @Produces(MediaType.APPLICATION_JSON)
 public class AcademiaResource {
 
-    // Loja de exemplo, até existir login (application.properties).
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     PainelAcademia painel;
@@ -23,6 +22,6 @@ public class AcademiaResource {
     @GET
     @Path("/dashboard")
     public DashboardAcademia dashboard() {
-        return painel.montar(storeId);
+        return painel.montar(lojaAtual.id());
     }
 }

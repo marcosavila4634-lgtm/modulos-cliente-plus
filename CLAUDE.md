@@ -55,12 +55,27 @@ já usa, e os pagamentos passam a alimentar as comissões automaticamente.
 
 ## Projeto principal (destino dos módulos)
 
-Feito no Lovable: React + TypeScript + Tailwind + shadcn/ui, rotas por arquivo
-do TanStack Router (`src/routes/_authenticated/painel.*.tsx`), Zustand, dnd-kit,
-banco Supabase/Postgres (Lovable Cloud) com RLS e migrations em
-`supabase/migrations`. Tabelas conhecidas: `stores` (com `page_config` jsonb),
-`store_page_versions`; bucket de arquivos `store-media`; página pública em
-`/loja/:slug`.
+Levantado em 09/10/2026 olhando o site no ar (clienteplus.club, só leitura; o
+código-fonte do principal NÃO está nesta máquina nem no GitHub do usuário):
+
+- **Backend Java/Quarkus (RESTEasy)** no Google Cloud Run, em
+  `clienteplus.club/api/...`, JSON em snake_case, `Authorization: Bearer`
+  com o token do Supabase Auth. **Supabase só faz login e guarda arquivos**
+  (bucket público `cliente-plus`, `stores/<storeId>/...`); o front não lê
+  tabelas direto.
+- Frontend: React 19 + TanStack Router/Start (SSR) + TanStack Query +
+  shadcn/Radix + Tailwind + lucide + recharts. **Sem dnd-kit e sem Zustand.**
+- Segurança do site (CSP): imagens só do próprio site, do Supabase e
+  `img.youtube.com`; iframes só YouTube-nocookie, Vimeo e Supabase (mapa do
+  Google é bloqueado); fontes só do próprio site (Google Fonts bloqueado).
+- Página pública em `/loja/:slug`. "Personalizar Loja"
+  (`/painel/personalizar`): `GET/PUT /stores/mine/pagina` (PUT `{doc}`;
+  resposta `{rascunho, publicado, versao, publicado_em, no_ar}`),
+  `POST .../pagina/publicar`, `DELETE .../pagina/publicacao`,
+  `GET .../pagina/versoes[/id]`, `POST /stores/mine/imagem` (multipart
+  `file`, até 2 MB, devolve `{url}`), `GET /public/stores/<slug>` (traz
+  `pagina` e `plans`). Documento no **modelo 2**:
+  `{ modelo, tema: {marca, tom, raio, densidade, titulacao}, secoes: [{id, tipo, visivel, props}] }`.
 
 ## Estrutura deste projeto
 
@@ -158,16 +173,103 @@ Pedido do usuário: o dono de qualquer módulo monta a própria página pública
   restaurar), `PaginasResource` em `/api/paginas/<modulo>`,
   `ModuloComPagina` (interface que cada módulo implementa: loja, link,
   dados para a prévia, `aoPublicar`).
-- Frontend: formato (tema + seções, catálogo, `completar`) em
-  `lib/pagina.ts`; desenho em `components/pagina/PaginaPublica.tsx` (usa
-  container queries `@xl/@3xl/@5xl` para a prévia "celular" ficar igual ao
-  celular); editor em `components/pagina/EditorPagina.tsx` + `campos.tsx`
-  (salva o rascunho sozinho, Publicar, versões, voltar ao modelo inicial,
-  prévia celular/computador, clicar na prévia abre a seção).
-- Seções: topo, aviso, benefícios, planos, como funciona, texto com foto,
-  vídeo (YouTube/Vimeo/enviado), depoimentos, galeria, perguntas, equipe,
-  aulas, horários, endereço e mapa, chamada final, contato/rodapé. Tema:
-  fundo (8 opções, 2 claras), cores (prontas ou livres), letra, cantos.
+- **Formato igual ao do "Personalizar Loja" do sistema principal**, para o
+  editor ser puxado para lá com pouco trabalho: **modelo 3** =
+  `{ modelo: 3, tema, secoes: [{ id: "s_...", tipo, visivel, props, estilo }] }`.
+  `completar` abre o modelo 2 do principal (cor `marca` vira as cores;
+  `props.fundo`/`props.alinhamento` viram `estilo`). Os nomes de seções e
+  de campos em comum são os do principal (capa, destaques, comoFunciona,
+  sobre, planos, beneficios, galeria, depoimentos, duvidas, chamada,
+  contato, rodape; itens com `id`, `titulo`, `texto`, `autor`, `imagem`).
+- Frontend: formato, catálogo e `completar` em `lib/pagina.ts`; cores em
+  `lib/pagina-cores.ts`; desenho em `components/pagina/PaginaPublica.tsx`
+  (container queries `@xl/@3xl/@5xl` para a prévia "celular" ficar igual ao
+  celular; cores por variáveis `--pg-*`, que cada seção pode trocar); editor
+  em `components/pagina/EditorPagina.tsx` + `campos.tsx` (salva o rascunho
+  sozinho, Publicar, versões, desfazer/refazer com Ctrl+Z, prévia
+  celular/computador, clicar na prévia abre a seção e mostra os botões
+  subir/descer/duplicar/esconder/apagar).
+- **Arrastar** (dnd-kit, `Ordenavel`/`useItemOrdenavel`/`Lista` em
+  `campos.tsx`): seções e itens das listas mudam de ordem pela alça.
+- **Combinações de cores** (ideia do Delivery Plus,
+  `H:\PROJECTS\delivery-plus\src\lib\panelThemes.ts`): 20 prontas × fundo
+  escuro/claro (`coresDa`) e "Editar a minha" (10 cores, vira a
+  "Personalizada"; avisa quando o texto some no fundo). A página guarda as
+  cores já resolvidas em `tema.cores`.
+- **Aparência por seção** (`estilo`, aba Aparência): fundo (da página,
+  alternado, escuro, cores da marca, uma cor, degradê, foto), cor do texto,
+  cor dos botões, espaço, largura, alinhamento, tamanho dos títulos e
+  colunas. Em fundo parecido com a cor dos botões, os botões trocam de cor
+  sozinhos (`aparencia` em `PaginaPublica.tsx`).
+- Seções além das do principal: aviso, vídeo (YouTube/Vimeo/enviado),
+  equipe, aulas, horários, endereço e mapa. Tema: combinação, tom, letra,
+  cantos, respiro.
+- **Para puxar para o sistema principal**: copiar `lib/pagina.ts`,
+  `lib/pagina-cores.ts` e `components/pagina/`; instalar `@dnd-kit/core`,
+  `@dnd-kit/sortable`, `@dnd-kit/utilities`; trocar `apiPagina` pelas rotas
+  `/stores/mine/pagina...`; envolver o editor com
+  `<EnvioDeArquivo.Provider>` usando `POST /stores/mine/imagem`; escrever o
+  adaptador da loja (`ModuloPagina`: `loja`/`plans` → `DadosPagina`); a
+  seção de planos daqui é simples (o principal tem filtro por recorrência e
+  tabela comparativa: reaproveitar o desenho de lá, `props.filtro` e
+  `props.comparativo` já existem); conferir se o servidor aceita `estilo` e
+  o tamanho do documento; por causa da CSP, levar as fontes junto e liberar
+  ou tirar o mapa.
+- **Digitar direto na prévia** (`components/pagina/Texto.tsx`, `Txt`): na
+  página de verdade é texto comum; no editor vira `contentEditable` e cada
+  tecla chega em `editarTexto` (caminho `"titulo"`, `"itens/<id>/texto"` ou
+  `"pecas/<id>/texto"`). O conteúdo é escrito fora do React para o que a
+  pessoa digita não ser desfeito. No editor, itens vazios das listas
+  aparecem (para dar para clicar) e as perguntas ficam abertas.
+- **Peças livres ("tela livre tipo Canva", pedido do usuário)**:
+  `secao.pecas` (texto, foto, botão, forma, ícone) por cima de QUALQUER
+  seção, e a seção **Tela livre** (`livre`, só peças, altura do dono).
+  Cada peça tem uma caixa para o computador (`pc`) e outra para o celular
+  (`cel`), em unidades de desenho: tela do computador = 1200 (faixa central),
+  celular = 390; troca aos 768px (`@3xl`) e tudo escala com a tela
+  (`--u`, `classeCamada`/`classePeca` em `Pecas.tsx`). Texto e botão têm a
+  altura do conteúdo. Desenho em `Pecas.tsx` (vai para a página pública);
+  arrastar, esticar pelos quadradinhos, grudar em bordas/meio/outras peças
+  com linhas-guia, setas/Delete e a aba "Peças livres" em
+  `PecasEdicao.tsx` (só o editor carrega). O editor mexe só na caixa do
+  aparelho escolhido em cima da prévia; "Copiar o lugar do
+  computador/celular" e "Arrumar o celular sozinho" (empilha) ajudam.
+  **Margens**: botão em cima da prévia liga as linhas "borda da tela"
+  (rosa) e "margem segura" (azul, 16 unidades).
+- **Várias peças de uma vez** (pedido do usuário: "selecionar tudo menos o
+  banner e arrastar junto"): Shift+clique, caixinhas na lista, "Escolher
+  todas", Ctrl+A e, na Tela livre, laço arrastando no vazio. Arrastar uma
+  move todas; setas e Delete valem para o grupo. A Tela livre cresce
+  sozinha quando uma peça passa do fim (`mudarPecas`).
+- **"Soltar tudo em peças livres"** (`Soltar.tsx`, botão na aba Peças
+  livres): o conteúdo pronto de uma seção NÃO é arrastável; este botão
+  desenha a seção escondida em 1280 e em 390, mede cada elemento
+  (`[data-txt]`, img, a/button, svg do catálogo, caixas com fundo/borda) e
+  troca a seção por uma Tela livre com tudo no mesmo lugar nos dois
+  aparelhos. Vale para capa, aviso, destaques, benefícios, como funciona,
+  texto com foto, depoimentos, galeria, equipe, chamada, contato e rodapé
+  (`podeSoltar`). Perde: logo padrão do módulo e ícones fora do catálogo,
+  parte colorida do título, estrelas. Por isso a capa deixou de ser
+  obrigatória (`completar` só garante os planos).
+- Seções com dados automáticos (planos, aulas, horários, mapa) continuam
+  como blocos (decisão: soltas quebrariam quando o cadastro muda); aceitam
+  peças por cima.
+- Defeito já corrigido: sem `onDragStart preventDefault` na peça, o
+  navegador "arrastava o link/texto" (botões, texto selecionado) e
+  cancelava o movimento. O teste por CDP não pega isso (só mouse de verdade).
+- Teste sem publicar: `scratchpad/publica-rascunho.mjs` da conversa de
+  09/10/2026 trocava a resposta da rota pública pelo rascunho (CDP
+  `Fetch.fulfillRequest`); o usuário costuma testar no navegador ao mesmo
+  tempo, então não publicar nem reiniciar o backend durante os testes.
+- Ideias que ficaram de fora: girar peças, alça para puxar a altura da
+  Tela livre na prévia (hoje é uma régua ao lado), trocar foto clicando na
+  prévia, peças presas fora da área visível só voltam pelos números ou por
+  "Pôr no meio da tela".
+- **O celular acompanha o computador** (`celularAcompanha` em `lib/pagina.ts`,
+  chave ligada por padrão na aba Peças livres): mexer no computador repete no
+  celular (vertical igual, horizontal e tamanho na proporção, sem sair da
+  tela); mexer no celular fica só no celular. Peça que muda as duas caixas no
+  mesmo passo não é tocada. A Tela livre cresce nos dois aparelhos.
 - Cada módulo tem um adaptador `lib/pagina-<modulo>.tsx` (seções permitidas,
   página padrão, dados → `DadosPagina`, cores do editor) e a tela
   `routes/<modulo>/pagina.tsx`. **Módulo novo com página:** implementar
@@ -181,8 +283,28 @@ Pedido do usuário: o dono de qualquer módulo monta a própria página pública
     `/api/academia/publico/<slug>`), menu "Página da academia";
     `academia_config.slug` e `whatsapp` (Configurações). Botão do plano
     abre o WhatsApp com o plano (matrícula continua na recepção; decisão).
-- No projeto principal pode virar parte do "Personalizar Loja"
-  (`stores.page_config`/`store_page_versions`, JSON em jsonb).
+- **Endereço da página (slug): o lojista NÃO muda** (pedido do usuário).
+  É definido na criação da loja (Academia: gerado com o nome em
+  `Configuracoes.config`; Grupos VIP: vem com a loja) e depois só a
+  plataforma troca: `PUT /api/plataforma/paginas/<modulo>/lojas/<storeId>/endereco`
+  (`paginas/PlataformaResource.java`, `ModuloComPagina.mudarEndereco`).
+  As telas do lojista só mostram o link. No projeto principal: usar o slug
+  da loja (`/loja/:slug`) e proteger a rota com permissão de admin.
+- No projeto principal este editor entra no lugar do "Personalizar Loja".
+- **Editores por nicho** (pedido do usuário: área SEPARADA dos módulos, fácil
+  de levar ao principal): `/editores` (atalho "Editores de página" no menu do
+  laboratório), um editor por nicho em `/editores/<nicho>` e a página
+  pública em `/n/<nicho>`. Nichos: barbearia (preto e dourado, letra
+  Impacto), salão de beleza (claro e rosa) e terapeutas (claro e
+  verde-água). Modelos em `frontend/src/lib/pagina-modelos.ts` (uma função
+  por nicho; fotos em `frontend/public/modelos/`, Unsplash); adaptador em
+  `lib/pagina-nichos.tsx`; servidor em `nichos/` (`PaginaDeNicho` +
+  lojas de exemplo em `NichosResource`; módulo do editor =
+  `nicho-<nicho>`). O botão "Modelos prontos" do editor (campo
+  `modelos` do `ModuloPagina`) troca a página inteira pelo modelo.
+  **Nicho novo**: função em `pagina-modelos.ts` + item em `modelos` +
+  classe em `NichosResource`. No principal, o nicho da loja (tabela de
+  nichos) escolhe o modelo com que a página nasce.
 
 ## Módulo Academia ("Gestão Plus Academia") — pronto para migrar
 

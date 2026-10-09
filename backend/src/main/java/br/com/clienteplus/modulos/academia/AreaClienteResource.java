@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // O que o aluno vê na área do cliente do Cliente Plus (abas "Meu treino" e
 // "Aulas"). No projeto principal o aluno está logado; aqui ele é escolhido
@@ -28,8 +27,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @Produces(MediaType.APPLICATION_JSON)
 public class AreaClienteResource {
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Matriculas matriculas;
@@ -52,7 +52,7 @@ public class AreaClienteResource {
     @GET
     @Path("/{clienteId}/treino")
     public TreinoDoAluno treino(@PathParam("clienteId") UUID clienteId) {
-        Cliente aluno = matriculas.aluno(storeId, clienteId);
+        Cliente aluno = matriculas.aluno(lojaAtual.id(), clienteId);
         Ficha ficha = treinos.fichaAtiva(aluno);
         return new TreinoDoAluno(nomeAcademia(), aluno.nome, ficha != null ? Treinos.json(ficha) : null,
                 registros.deHoje(aluno), registros.ultimasCargas(aluno), registros.diasTreinadosNoMes(aluno));
@@ -62,7 +62,7 @@ public class AreaClienteResource {
     @POST
     @Path("/{clienteId}/treino/registro")
     public TreinoDoAluno registrar(@PathParam("clienteId") UUID clienteId, TreinosContrato.DadosRegistro dados) {
-        registros.registrar(storeId, matriculas.aluno(storeId, clienteId), dados);
+        registros.registrar(lojaAtual.id(), matriculas.aluno(lojaAtual.id(), clienteId), dados);
         return treino(clienteId);
     }
 
@@ -70,7 +70,7 @@ public class AreaClienteResource {
     @GET
     @Path("/{clienteId}/aulas")
     public AulasDoAluno aulas(@PathParam("clienteId") UUID clienteId) {
-        Cliente aluno = matriculas.aluno(storeId, clienteId);
+        Cliente aluno = matriculas.aluno(lojaAtual.id(), clienteId);
         LocalDate hoje = Matriculas.hoje();
         boolean matriculado = matriculas.matriculaAtiva(aluno) != null;
 
@@ -82,7 +82,7 @@ public class AreaClienteResource {
         }
 
         OffsetDateTime agora = OffsetDateTime.now();
-        List<AulaDoAluno> lista = aulas.entre(storeId, hoje, hoje.plusDays(6), null).stream()
+        List<AulaDoAluno> lista = aulas.entre(lojaAtual.id(), hoje, hoje.plusDays(6), null).stream()
                 .filter(a -> a.fim().isAfter(agora))
                 .map(a -> {
                     String p = minhas.get(a.horarioId() + "|" + a.data());
@@ -101,14 +101,14 @@ public class AreaClienteResource {
     @Path("/{clienteId}/aulas/reservar")
     public void reservar(@PathParam("clienteId") UUID clienteId, ReservaAluno r) {
         if (r == null || r.horarioId() == null) throw Erro.invalido("Escolha a aula");
-        aulas.reservar(storeId, r.horarioId(), matriculas.aluno(storeId, clienteId), r.data(), "area_cliente");
+        aulas.reservar(lojaAtual.id(), r.horarioId(), matriculas.aluno(lojaAtual.id(), clienteId), r.data(), "area_cliente");
     }
 
     @POST
     @Path("/{clienteId}/aulas/cancelar")
     public void cancelar(@PathParam("clienteId") UUID clienteId, ReservaAluno r) {
         if (r == null || r.horarioId() == null) throw Erro.invalido("Escolha a aula");
-        aulas.cancelarReserva(storeId, r.horarioId(), matriculas.aluno(storeId, clienteId), r.data());
+        aulas.cancelarReserva(lojaAtual.id(), r.horarioId(), matriculas.aluno(lojaAtual.id(), clienteId), r.data());
     }
 
     public record ReservaAluno(UUID horarioId, LocalDate data) {}
@@ -116,16 +116,16 @@ public class AreaClienteResource {
     @GET
     @Path("/{clienteId}/beneficios")
     public FinanceiroContrato.BeneficiosDoAluno beneficios(@PathParam("clienteId") UUID clienteId) {
-        return beneficios.doAluno(storeId, matriculas.aluno(storeId, clienteId), nomeAcademia());
+        return beneficios.doAluno(lojaAtual.id(), matriculas.aluno(lojaAtual.id(), clienteId), nomeAcademia());
     }
 
     @POST
     @Path("/{clienteId}/beneficios/{beneficioId}/resgatar")
     public void resgatar(@PathParam("clienteId") UUID clienteId, @PathParam("beneficioId") UUID beneficioId) {
-        beneficios.resgatar(storeId, beneficioId, matriculas.aluno(storeId, clienteId), "area_cliente");
+        beneficios.resgatar(lojaAtual.id(), beneficioId, matriculas.aluno(lojaAtual.id(), clienteId), "area_cliente");
     }
 
     private String nomeAcademia() {
-        return configuracoes.painel(storeId).nomeAcademia;
+        return configuracoes.painel(lojaAtual.id()).nomeAcademia;
     }
 }

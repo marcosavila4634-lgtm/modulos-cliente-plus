@@ -9,6 +9,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@tanstack/react-router": "^1.170.39",
     "lucide-react": "^1.48.0",
     "qrcode": "^1.5.4",

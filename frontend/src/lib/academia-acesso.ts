@@ -117,7 +117,7 @@ export type Configuracoes = {
   endereco: string | null;
   cnpj: string | null;
   whatsapp: string | null;
-  // página pública: /a/<slug> (editada em "Página da academia")
+  // página pública: /a/<slug> (definido na criação da loja; só a plataforma muda)
   slug: string;
   paginaPublica: string;
   capacidade: number;

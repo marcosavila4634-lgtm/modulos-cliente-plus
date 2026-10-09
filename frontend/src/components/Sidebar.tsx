@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Blocks, Dumbbell, GraduationCap, LayoutGrid, Scissors, Send, Stethoscope } from "lucide-react";
+import { Blocks, Dumbbell, GraduationCap, LayoutGrid, LayoutTemplate, Scissors, Send, Stethoscope } from "lucide-react";
 import type { ComponentType } from "react";
 import type { Modulo } from "../lib/api";
 
@@ -32,6 +32,12 @@ export function Sidebar({ modulos }: { modulos: Modulo[] }) {
         <Link to="/" className={itemBase} activeProps={{ className: itemAtivo }} activeOptions={{ exact: true }}>
           <LayoutGrid className="size-4" />
           Visão geral
+        </Link>
+
+        {/* área separada dos módulos: o editor de páginas com os modelos por nicho */}
+        <Link to="/editores" className={itemBase}>
+          <LayoutTemplate className="size-4" />
+          Editores de página
         </Link>
 
         <div className="mt-5 mb-1 px-3 text-[11px] font-medium uppercase tracking-wider text-muted/70">

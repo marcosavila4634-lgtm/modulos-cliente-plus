@@ -12,15 +12,15 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Benefícios para os alunos: cadastro, quem tem direito e resgates.
 @Path("/academia/beneficios")
 @Produces(MediaType.APPLICATION_JSON)
 public class BeneficiosResource {
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Beneficios beneficios;
@@ -30,39 +30,39 @@ public class BeneficiosResource {
 
     @GET
     public List<BeneficioJson> listar() {
-        return beneficios.listar(storeId);
+        return beneficios.listar(lojaAtual.id());
     }
 
     @POST
     public DetalheBeneficio cadastrar(DadosBeneficio dados) {
-        return beneficios.detalhe(storeId, beneficios.salvar(storeId, null, dados).id);
+        return beneficios.detalhe(lojaAtual.id(), beneficios.salvar(lojaAtual.id(), null, dados).id);
     }
 
     @PUT
     @Path("/{id}")
     public DetalheBeneficio atualizar(@PathParam("id") UUID id, DadosBeneficio dados) {
-        beneficios.salvar(storeId, id, dados);
-        return beneficios.detalhe(storeId, id);
+        beneficios.salvar(lojaAtual.id(), id, dados);
+        return beneficios.detalhe(lojaAtual.id(), id);
     }
 
     @GET
     @Path("/{id}")
     public DetalheBeneficio detalhe(@PathParam("id") UUID id) {
-        return beneficios.detalhe(storeId, id);
+        return beneficios.detalhe(lojaAtual.id(), id);
     }
 
     @POST
     @Path("/{id}/resgatar")
     public DetalheBeneficio resgatar(@PathParam("id") UUID id, NovoResgate pedido) {
         if (pedido == null || pedido.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        beneficios.resgatar(storeId, id, matriculas.aluno(storeId, pedido.alunoId()), "recepcao");
-        return beneficios.detalhe(storeId, id);
+        beneficios.resgatar(lojaAtual.id(), id, matriculas.aluno(lojaAtual.id(), pedido.alunoId()), "recepcao");
+        return beneficios.detalhe(lojaAtual.id(), id);
     }
 
     @POST
     @Path("/{id}/resgates/{resgateId}/entregar")
     public DetalheBeneficio entregar(@PathParam("id") UUID id, @PathParam("resgateId") UUID resgateId) {
-        beneficios.entregar(storeId, resgateId);
-        return beneficios.detalhe(storeId, id);
+        beneficios.entregar(lojaAtual.id(), resgateId);
+        return beneficios.detalhe(lojaAtual.id(), id);
     }
 }

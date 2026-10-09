@@ -9,28 +9,28 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Dados da academia, horário de funcionamento e regras gerais.
 @Path("/academia/configuracoes")
 @Produces(MediaType.APPLICATION_JSON)
 public class ConfiguracoesResource {
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Configuracoes configuracoes;
 
     @GET
     public ConfiguracoesJson buscar() {
-        return configuracoes.tela(storeId).json();
+        return configuracoes.tela(lojaAtual.id()).json();
     }
 
     @PUT
     @Transactional
     public ConfiguracoesJson salvar(DadosConfiguracoes dados) {
-        configuracoes.salvar(storeId, dados);
-        return configuracoes.tela(storeId).json();
+        configuracoes.salvar(lojaAtual.id(), dados);
+        return configuracoes.tela(lojaAtual.id()).json();
     }
 }

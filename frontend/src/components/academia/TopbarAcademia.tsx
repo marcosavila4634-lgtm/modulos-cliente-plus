@@ -2,13 +2,17 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Bell, ChevronDown, ChevronRight, CircleQuestionMark, Menu, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { DashboardAcademia } from "../../lib/academia";
-import { MarcaCircular } from "./Marcas";
+import type { TipoAlertaLutas } from "../../lib/artes-marciais";
+import { ehArtesMarciais, textosModulo } from "../../lib/modulo-atual";
+import { destinoAlertaLutas, estiloAlertaLutas } from "../artes-marciais/alertas";
+import { MarcaCircular, MarcaDojo } from "./Marcas";
 import { destinoAlerta, estiloAlerta } from "./Paineis";
 import { Modal } from "./formulario";
 
 type Props = {
   nomeAcademia: string;
-  alertas: DashboardAcademia["alertas"];
+  // alertas da Academia e, no Artes Marciais, também os de luta
+  alertas: { tipo: string; titulo: string; descricao: string }[];
   demo: boolean;
   aoAlternarMenu: () => void;
 };
@@ -52,7 +56,7 @@ export function TopbarAcademia({ nomeAcademia, alertas, demo, aoAlternarMenu }: 
         <input
           type="search"
           name="busca"
-          placeholder="Buscar alunos (Enter)"
+          placeholder={ehArtesMarciais() ? "Buscar alunos pelo nome..." : "Buscar alunos (Enter)"}
           className="w-full bg-transparent text-slate-200 outline-none placeholder:text-ac-muted"
         />
       </form>
@@ -86,11 +90,11 @@ export function TopbarAcademia({ nomeAcademia, alertas, demo, aoAlternarMenu }: 
               {alertas.length === 0 && <p className="px-2 pb-3 text-sm text-emerald-300">Tudo em dia por aqui.</p>}
               <ul className="flex flex-col">
                 {alertas.map((a) => {
-                  const { icone: Icone, cor } = estiloAlerta[a.tipo];
+                  const { icone: Icone, cor } = estiloDoAlerta(a.tipo);
                   return (
                     <li key={a.tipo}>
                       <Link
-                        {...destinoAlerta[a.tipo]}
+                        {...destinoDoAlerta(a.tipo)}
                         onClick={() => setAvisosAbertos(false)}
                         className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04]"
                       >
@@ -130,13 +134,35 @@ export function TopbarAcademia({ nomeAcademia, alertas, demo, aoAlternarMenu }: 
           <ChevronDown className="size-4 text-ac-muted" />
         </Link>
 
-        <MarcaCircular />
+        {ehArtesMarciais() ? <MarcaDojo /> : <MarcaCircular />}
       </div>
 
       {ajuda && <ModalAjuda aoFechar={() => setAjuda(false)} />}
     </header>
   );
 }
+
+type Alerta = DashboardAcademia["alertas"][number]["tipo"];
+
+export function estiloDoAlerta(tipo: string) {
+  return estiloAlerta[tipo as Alerta] ?? estiloAlertaLutas[tipo as TipoAlertaLutas];
+}
+
+export function destinoDoAlerta(tipo: string) {
+  return destinoAlerta[tipo as Alerta] ?? destinoAlertaLutas[tipo as TipoAlertaLutas];
+}
+
+const guiaLutas: [string, string][] = [
+  ["Alunos e Kids", "Cadastro, matrícula, mensalidades, faixas de cada modalidade e o responsável dos alunos menores."],
+  ["Graduações", "Faixas e graus com requisitos (tempo, aulas, idade). Mostra quem está pronto, os exames e o currículo."],
+  ["Presença / Check-in", "Aulas de hoje com a chamada, o QR Code de presença e o ranking de frequência do mês."],
+  ["Eventos e campeonatos", "Inscrições com pagamento, categorias, medalhas, quadro de medalhas e filiações às federações."],
+  ["Uniformes e loja", "Kimonos, faixas e luvas com tamanhos e estoque. A venda vira cobrança no Cliente Plus."],
+  ["Equipamentos", "Tatames, sacos e luvas coletivas, com a próxima revisão e o custo das manutenções."],
+  ["Comunicação", "Avisos por WhatsApp (com o nome de cada um) e no mural da área do aluno."],
+  ["Cronômetro", "Rounds e descanso com som, em tela cheia para a TV do tatame."],
+  ["Financeiro e Comissão", "Mensalidades, taxas, inscrições, vendas, despesas e o resultado do mês; comissão dos professores e das indicações."],
+];
 
 const guia: [string, string][] = [
   ["Alunos", "Cadastro, matrícula, mensalidades, ficha de treino, avaliação e frequência de cada aluno."],
@@ -152,9 +178,9 @@ const guia: [string, string][] = [
 
 function ModalAjuda({ aoFechar }: { aoFechar: () => void }) {
   return (
-    <Modal titulo="Como usar o Gestão Plus Academia" aoFechar={aoFechar} largura="max-w-xl">
+    <Modal titulo={`Como usar o ${textosModulo().produto}`} aoFechar={aoFechar} largura="max-w-xl">
       <ul className="flex flex-col gap-3">
-        {guia.map(([titulo, texto]) => (
+        {(ehArtesMarciais() ? guiaLutas : guia).map(([titulo, texto]) => (
           <li key={titulo} className="rounded-xl border border-ac-line bg-ac-bg/40 px-3 py-2.5">
             <div className="text-sm font-semibold text-white">{titulo}</div>
             <p className="mt-0.5 text-xs leading-relaxed text-ac-muted">{texto}</p>

@@ -167,7 +167,8 @@ export type Configuracoes = {
   detectados: GrupoDetectado[];
 };
 
-export type DadosConfiguracoes = Omit<Configuracoes, "robo" | "paginaVendas" | "enderecoPublico" | "cupons" | "detectados">;
+// Sem o endereço da página (slug): definido na criação da loja, só a plataforma muda.
+export type DadosConfiguracoes = Omit<Configuracoes, "slug" | "robo" | "paginaVendas" | "enderecoPublico" | "cupons" | "detectados">;
 
 export const apiFinanceiro = {
   receitas: (mes?: string) => http.get<Receitas>(`/grupo-vip/financeiro/receitas${mes ? `?mes=${mes}` : ""}`),

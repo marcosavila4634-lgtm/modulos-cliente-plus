@@ -19,15 +19,15 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Faturamento: mensalidades (pagamentos do Cliente Plus) da academia.
 @Path("/academia/cobrancas")
 @Produces(MediaType.APPLICATION_JSON)
 public class CobrancasResource {
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Matriculas matriculas;
@@ -37,7 +37,7 @@ public class CobrancasResource {
     @GET
     public Faturamento listar() {
         List<Cobranca> cobrancas = Pagamento.<Pagamento>list(
-                        "storeId = ?1 and status <> ?2 order by vencimento desc", storeId, Pagamento.CANCELADO)
+                        "storeId = ?1 and status <> ?2 order by vencimento desc", lojaAtual.id(), Pagamento.CANCELADO)
                 .stream()
                 .map(Matriculas::cobranca)
                 .toList();
@@ -63,7 +63,7 @@ public class CobrancasResource {
     @Path("/{id}/receber")
     @Transactional
     public Cobranca receber(@PathParam("id") UUID id, Receber pedido) {
-        return Matriculas.cobranca(matriculas.receber(storeId, id, pedido));
+        return Matriculas.cobranca(matriculas.receber(lojaAtual.id(), id, pedido));
     }
 
     private static List<Cobranca> filtrar(List<Cobranca> cobrancas, Predicate<Cobranca> filtro) {

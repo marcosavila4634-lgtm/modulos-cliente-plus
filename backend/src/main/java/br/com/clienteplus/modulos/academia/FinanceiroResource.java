@@ -11,15 +11,15 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Despesas, resultado do mês e comissões (profissionais e indicações).
 @Path("/academia")
 @Produces(MediaType.APPLICATION_JSON)
 public class FinanceiroResource {
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Financeiro financeiro;
@@ -29,31 +29,31 @@ public class FinanceiroResource {
     @GET
     @Path("/despesas")
     public PainelDespesas despesas() {
-        return financeiro.painelDespesas(storeId);
+        return financeiro.painelDespesas(lojaAtual.id());
     }
 
     @POST
     @Path("/despesas")
     public DespesaJson cadastrar(DadosDespesa dados) {
-        return Financeiro.json(financeiro.salvarDespesa(storeId, null, dados));
+        return Financeiro.json(financeiro.salvarDespesa(lojaAtual.id(), null, dados));
     }
 
     @PUT
     @Path("/despesas/{id}")
     public DespesaJson atualizar(@PathParam("id") UUID id, DadosDespesa dados) {
-        return Financeiro.json(financeiro.salvarDespesa(storeId, id, dados));
+        return Financeiro.json(financeiro.salvarDespesa(lojaAtual.id(), id, dados));
     }
 
     @POST
     @Path("/despesas/{id}/pagar")
     public DespesaJson pagar(@PathParam("id") UUID id, PagarDespesa pedido) {
-        return Financeiro.json(financeiro.pagar(storeId, id, pedido));
+        return Financeiro.json(financeiro.pagar(lojaAtual.id(), id, pedido));
     }
 
     @POST
     @Path("/despesas/{id}/cancelar")
     public void cancelar(@PathParam("id") UUID id) {
-        financeiro.cancelar(storeId, id);
+        financeiro.cancelar(lojaAtual.id(), id);
     }
 
     // ---------- Resultado ----------
@@ -62,7 +62,7 @@ public class FinanceiroResource {
     @GET
     @Path("/financeiro/resultado")
     public Resultado resultado(@QueryParam("meses") Integer meses) {
-        return financeiro.resultado(storeId, meses == null ? 6 : Math.max(1, Math.min(12, meses)));
+        return financeiro.resultado(lojaAtual.id(), meses == null ? 6 : Math.max(1, Math.min(12, meses)));
     }
 
     // ---------- Comissões ----------
@@ -71,7 +71,7 @@ public class FinanceiroResource {
     @GET
     @Path("/comissoes/profissionais")
     public ComissoesProfissionais profissionais(@QueryParam("mes") String mes) {
-        return financeiro.comissoesProfissionais(storeId, Financeiro.competencia(mes));
+        return financeiro.comissoesProfissionais(lojaAtual.id(), Financeiro.competencia(mes));
     }
 
     public record PagarComissao(String mes, String formaPagamento) {}
@@ -80,13 +80,13 @@ public class FinanceiroResource {
     @Path("/comissoes/profissionais/{id}/pagar")
     public ComissoesProfissionais pagarComissao(@PathParam("id") UUID id, PagarComissao pedido) {
         String mes = pedido != null ? pedido.mes() : null;
-        financeiro.pagarComissao(storeId, id, Financeiro.competencia(mes), pedido != null ? pedido.formaPagamento() : null);
-        return financeiro.comissoesProfissionais(storeId, Financeiro.competencia(mes));
+        financeiro.pagarComissao(lojaAtual.id(), id, Financeiro.competencia(mes), pedido != null ? pedido.formaPagamento() : null);
+        return financeiro.comissoesProfissionais(lojaAtual.id(), Financeiro.competencia(mes));
     }
 
     @GET
     @Path("/comissoes/indicacoes")
     public ComissoesIndicacoes indicacoes(@QueryParam("mes") String mes) {
-        return financeiro.indicacoes(storeId, Financeiro.competencia(mes));
+        return financeiro.indicacoes(lojaAtual.id(), Financeiro.competencia(mes));
     }
 }

@@ -1,3 +1,5 @@
+import { cabecalhoModulo } from "./modulo-atual";
+
 // Contrato com o backend: backend/src/main/java/br/com/clienteplus/modulos/academia/DashboardAcademia.java
 
 export type DashboardAcademia = {
@@ -39,7 +41,7 @@ export type DashboardAcademia = {
 };
 
 export async function buscarDashboard(): Promise<DashboardAcademia> {
-  const res = await fetch("/api/academia/dashboard");
+  const res = await fetch("/api/academia/dashboard", { headers: cabecalhoModulo() });
   if (!res.ok) throw new Error(`Erro ${res.status} ao buscar o painel da academia`);
   return res.json() as Promise<DashboardAcademia>;
 }

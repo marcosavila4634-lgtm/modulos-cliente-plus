@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Avaliação física: painel (alunos x última avaliação), histórico do aluno e
 // cadastro/edição de avaliações.
@@ -32,8 +31,9 @@ public class AvaliacoesResource {
 
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Avaliacoes avaliacoes;
@@ -47,11 +47,11 @@ public class AvaliacoesResource {
     // Alunos com matrícula ativa e a situação da avaliação de cada um.
     @GET
     public PainelAvaliacoes painel() {
-        int dias = configuracoes.config(storeId).reavaliacaoDias;
-        List<Avaliacao> todas = Avaliacao.list("storeId = ?1 order by data desc, createdAt desc", storeId);
+        int dias = configuracoes.config(lojaAtual.id()).reavaliacaoDias;
+        List<Avaliacao> todas = Avaliacao.list("storeId = ?1 order by data desc, createdAt desc", lojaAtual.id());
         Map<UUID, List<Avaliacao>> porAluno = todas.stream().collect(Collectors.groupingBy(a -> a.cliente.id));
 
-        List<AlunoAvaliacao> alunos = Assinatura.<Assinatura>list("storeId = ?1 and status = ?2", storeId, Assinatura.ATIVA)
+        List<AlunoAvaliacao> alunos = Assinatura.<Assinatura>list("storeId = ?1 and status = ?2", lojaAtual.id(), Assinatura.ATIVA)
                 .stream()
                 .map(m -> m.cliente)
                 .collect(Collectors.toMap(c -> c.id, Function.identity(), (a, b) -> a))
@@ -94,33 +94,33 @@ public class AvaliacoesResource {
     @GET
     @Path("/aluno/{alunoId}")
     public HistoricoAvaliacoes historico(@PathParam("alunoId") UUID alunoId) {
-        return avaliacoes.historico(storeId, matriculas.aluno(storeId, alunoId));
+        return avaliacoes.historico(lojaAtual.id(), matriculas.aluno(lojaAtual.id(), alunoId));
     }
 
     @GET
     @Path("/{id}")
     public AvaliacaoJson buscar(@PathParam("id") UUID id) {
-        return Avaliacoes.json(avaliacoes.avaliacao(storeId, id));
+        return Avaliacoes.json(avaliacoes.avaliacao(lojaAtual.id(), id));
     }
 
     @POST
     @Transactional
     public AvaliacaoJson cadastrar(DadosAvaliacao dados) {
         if (dados == null || dados.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        Cliente aluno = matriculas.aluno(storeId, dados.alunoId());
-        return Avaliacoes.json(avaliacoes.salvar(storeId, null, aluno, dados));
+        Cliente aluno = matriculas.aluno(lojaAtual.id(), dados.alunoId());
+        return Avaliacoes.json(avaliacoes.salvar(lojaAtual.id(), null, aluno, dados));
     }
 
     @PUT
     @Path("/{id}")
     @Transactional
     public AvaliacaoJson atualizar(@PathParam("id") UUID id, DadosAvaliacao dados) {
-        return Avaliacoes.json(avaliacoes.salvar(storeId, id, null, dados));
+        return Avaliacoes.json(avaliacoes.salvar(lojaAtual.id(), id, null, dados));
     }
 
     @POST
     @Path("/{id}/excluir")
     public void excluir(@PathParam("id") UUID id) {
-        avaliacoes.excluir(storeId, id);
+        avaliacoes.excluir(lojaAtual.id(), id);
     }
 }

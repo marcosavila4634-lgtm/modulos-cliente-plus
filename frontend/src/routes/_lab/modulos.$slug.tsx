@@ -14,6 +14,9 @@ const rotaDoModulo = { academia: "/academia", "grupo-vip": "/grupo-vip" } as con
 function PaginaModulo() {
   const modulo = Route.useLoaderData();
   const rota = rotaDoModulo[modulo.slug as keyof typeof rotaDoModulo];
+  // Artes Marciais: as telas da Academia com a loja do dojo (lib/modulo-atual.ts).
+  // Link comum (não do roteador) para o /artes-marciais passar pelo "rewrite".
+  const artesMarciais = modulo.slug === "artes-marciais";
 
   return (
     <>
@@ -24,7 +27,15 @@ function PaginaModulo() {
       </div>
       <p className="mt-2 max-w-2xl text-muted">{modulo.descricao}</p>
 
-      {rota ? (
+      {artesMarciais ? (
+        <a
+          href="/artes-marciais"
+          className="bg-brand-gradient mt-8 inline-flex items-center gap-2 rounded-xl px-5 py-3 font-medium text-white"
+        >
+          Abrir módulo
+          <ArrowRight className="size-4" />
+        </a>
+      ) : rota ? (
         <Link
           to={rota}
           className="bg-brand-gradient mt-8 inline-flex items-center gap-2 rounded-xl px-5 py-3 font-medium text-white"

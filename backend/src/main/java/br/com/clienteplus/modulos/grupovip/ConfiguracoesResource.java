@@ -74,9 +74,10 @@ public class ConfiguracoesResource {
             List<CupomJson> cupons,
             List<RoboTelegram.GrupoDetectado> detectados) {}
 
+    // Sem o endereço da página (slug): ele é definido na criação da loja e
+    // depois só a plataforma muda (paginas/PlataformaResource).
     public record DadosConfig(
             String nomeNegocio,
-            String slug,
             String descricaoPagina,
             String beneficios,
             String fotoCapa,
@@ -122,13 +123,6 @@ public class ConfiguracoesResource {
         Config c = membros.config(storeId);
         String nome = Membros.limpo(d.nomeNegocio());
         if (nome == null) throw Erro.invalido("Informe o nome do negócio");
-        String slug = d.slug() != null ? d.slug().trim().toLowerCase() : "";
-        if (!slug.matches("[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]")) {
-            throw Erro.invalido("Endereço da página: de 3 a 40 letras minúsculas, números ou hífen");
-        }
-        if (Config.count("slug = ?1 and storeId <> ?2", slug, storeId) > 0) {
-            throw Erro.conflito("Este endereço de página já está em uso");
-        }
         String gestor = Membros.limpo(d.gestorNome());
         if (gestor == null) throw Erro.invalido("Informe o nome do gestor");
         int tolerancia = d.toleranciaDias() != null ? d.toleranciaDias() : c.toleranciaDias;
@@ -140,7 +134,6 @@ public class ConfiguracoesResource {
         if (chave != null && chave.length() > 77) throw Erro.invalido("Chave Pix muito longa");
 
         c.nomeNegocio = nome;
-        c.slug = slug;
         c.descricaoPagina = texto(d.descricaoPagina());
         c.beneficios = texto(d.beneficios());
         c.fotoCapa = Membros.limpo(d.fotoCapa());

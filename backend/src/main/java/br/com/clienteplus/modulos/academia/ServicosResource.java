@@ -24,7 +24,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Serviços avulsos e as vendas deles.
 @Path("/academia")
@@ -33,8 +32,9 @@ public class ServicosResource {
 
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Servicos servicos;
@@ -47,14 +47,14 @@ public class ServicosResource {
     @Path("/servicos")
     public PainelServicos painel() {
         YearMonth mes = YearMonth.from(Matriculas.hoje());
-        List<Venda> vendas = Venda.list("storeId = ?1 order by createdAt desc", storeId);
+        List<Venda> vendas = Venda.list("storeId = ?1 order by createdAt desc", lojaAtual.id());
         List<Venda> doMes = vendas.stream()
                 .filter(v -> !Pagamento.CANCELADO.equals(v.pagamento.status))
                 .filter(v -> YearMonth.from(v.createdAt.atZoneSameInstant(FUSO)).equals(mes))
                 .toList();
         Map<UUID, List<Venda>> porServico = doMes.stream().collect(Collectors.groupingBy(v -> v.servico.id));
 
-        List<ServicoJson> lista = Servico.<Servico>list("storeId", storeId).stream()
+        List<ServicoJson> lista = Servico.<Servico>list("storeId", lojaAtual.id()).stream()
                 .sorted(Comparator.comparing((Servico s) -> !s.ativo).thenComparing(s -> s.nome, ALFABETICA))
                 .map(s -> {
                     List<Venda> vs = porServico.getOrDefault(s.id, List.of());
@@ -82,13 +82,13 @@ public class ServicosResource {
     @POST
     @Path("/servicos")
     public ServicoJson cadastrar(DadosServico dados) {
-        return Servicos.json(servicos.salvar(storeId, null, dados), 0, BigDecimal.ZERO);
+        return Servicos.json(servicos.salvar(lojaAtual.id(), null, dados), 0, BigDecimal.ZERO);
     }
 
     @PUT
     @Path("/servicos/{id}")
     public ServicoJson atualizar(@PathParam("id") UUID id, DadosServico dados) {
-        return Servicos.json(servicos.salvar(storeId, id, dados), 0, BigDecimal.ZERO);
+        return Servicos.json(servicos.salvar(lojaAtual.id(), id, dados), 0, BigDecimal.ZERO);
     }
 
     @POST
@@ -96,12 +96,12 @@ public class ServicosResource {
     @Transactional
     public VendaJson vender(NovaVenda pedido) {
         if (pedido == null || pedido.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        return Servicos.json(servicos.vender(storeId, matriculas.aluno(storeId, pedido.alunoId()), pedido));
+        return Servicos.json(servicos.vender(lojaAtual.id(), matriculas.aluno(lojaAtual.id(), pedido.alunoId()), pedido));
     }
 
     @POST
     @Path("/vendas/{id}/cancelar")
     public void cancelar(@PathParam("id") UUID id) {
-        servicos.cancelar(storeId, id);
+        servicos.cancelar(lojaAtual.id(), id);
     }
 }

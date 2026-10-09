@@ -20,7 +20,6 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Página pública da academia (/a/<slug>): planos, aulas, horários, equipe e
 // contato, com a aparência escolhida no editor de páginas comum a todos os
@@ -62,8 +61,9 @@ public class PaginaAcademia implements ModuloComPagina {
             // frontend/src/lib/pagina.ts
             JsonNode pagina) {}
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Configuracoes configuracoes;
@@ -126,16 +126,25 @@ public class PaginaAcademia implements ModuloComPagina {
 
     @Override
     public UUID storeId() {
-        return storeId;
+        return lojaAtual.id();
     }
 
     @Override
     public String link() {
-        return endereco.base() + "/a/" + configuracoes.config(storeId).slug;
+        return endereco.base() + "/a/" + configuracoes.config(lojaAtual.id()).slug;
     }
 
     @Override
     public Object dados() {
-        return montar(storeId, null);
+        return montar(lojaAtual.id(), null);
+    }
+
+    @Override
+    public void mudarEndereco(UUID loja, String endereco) {
+        AcademiaConfig c = configuracoes.config(loja);
+        if (AcademiaConfig.count("slug = ?1 and storeId <> ?2", endereco, loja) > 0) {
+            throw Erro.conflito("Este endereço de página já está em uso");
+        }
+        c.slug = endereco;
     }
 }

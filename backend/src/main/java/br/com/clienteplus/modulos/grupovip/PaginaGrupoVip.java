@@ -1,5 +1,6 @@
 package br.com.clienteplus.modulos.grupovip;
 
+import br.com.clienteplus.modulos.comum.Erro;
 import br.com.clienteplus.modulos.paginas.ModuloComPagina;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -45,6 +46,15 @@ public class PaginaGrupoVip implements ModuloComPagina {
         return PublicoResource.montar(membros.config(storeId), null, null);
     }
 
+    @Override
+    public void mudarEndereco(UUID loja, String endereco) {
+        Config c = membros.config(loja);
+        if (Config.count("slug = ?1 and storeId <> ?2", endereco, loja) > 0) {
+            throw Erro.conflito("Este endereço de página já está em uso");
+        }
+        c.slug = endereco;
+    }
+
     // O robô ("Conhecer mais") e os Primeiros passos usam a descrição, os
     // benefícios e a foto de capa: copia da página publicada.
     @Override
@@ -53,14 +63,16 @@ public class PaginaGrupoVip implements ModuloComPagina {
         for (JsonNode s : pagina.path("secoes")) {
             if (!s.path("visivel").asBoolean(true)) continue;
             String tipo = s.path("tipo").asText();
-            if ("topo".equals(tipo)) {
-                c.descricaoPagina = s.path("texto").asText("").trim();
-                String capa = s.path("capa").asText(null);
+            // conteúdo da seção (formato do editor: { id, tipo, visivel, props, estilo })
+            JsonNode props = s.path("props");
+            if ("capa".equals(tipo)) {
+                c.descricaoPagina = props.path("texto").asText("").trim();
+                String capa = props.path("imagem").asText(null);
                 if (capa != null && !capa.isBlank()) c.fotoCapa = capa;
             } else if ("beneficios".equals(tipo)) {
                 List<String> itens = new ArrayList<>();
-                s.path("itens").forEach(i -> {
-                    String t = i.path("texto").asText("").trim();
+                props.path("itens").forEach(i -> {
+                    String t = i.path("titulo").asText("").trim();
                     if (!t.isEmpty()) itens.add(t);
                 });
                 c.beneficios = String.join("\n", itens);

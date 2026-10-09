@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { EvolucaoCarga } from "../../../components/academia/EvolucaoCarga";
+import { FichaLutasAluno } from "../../../components/artes-marciais/FichaLutasAluno";
+import { ehArtesMarciais } from "../../../lib/modulo-atual";
 import { ModalAluno, ModalMatricular } from "../../../components/academia/ModaisAluno";
 import { ModalMontarFicha } from "../../../components/academia/ModalMontarFicha";
 import { ModalReceber } from "../../../components/academia/ModalReceber";
@@ -191,6 +193,10 @@ function FichaAluno() {
         </Card>
       </div>
 
+      {ehArtesMarciais() ? (
+        <FichaLutasAluno alunoId={aluno.id} />
+      ) : (
+      <>
       <Card>
         <TituloCard icone={Dumbbell} cor="text-fuchsia-400">
           Treino
@@ -243,6 +249,8 @@ function FichaAluno() {
       </Card>
 
       {aluno.ficha && <EvolucaoCarga dados={treinosFeitos} />}
+      </>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card>

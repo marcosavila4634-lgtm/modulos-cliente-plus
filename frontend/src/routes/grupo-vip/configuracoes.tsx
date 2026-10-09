@@ -27,7 +27,6 @@ export const Route = createFileRoute("/grupo-vip/configuracoes")({
 function dadosDe(c: Configuracoes): DadosConfiguracoes {
   return {
     nomeNegocio: c.nomeNegocio,
-    slug: c.slug,
     descricaoPagina: c.descricaoPagina,
     beneficios: c.beneficios,
     fotoCapa: c.fotoCapa,
@@ -170,10 +169,8 @@ function PaginaConfiguracoes() {
               <Botao pequeno>Abrir</Botao>
             </a>
           </div>
-          <div className="mt-4 flex flex-wrap items-end gap-4">
-            <Campo rotulo="Endereço da página" className="min-w-[240px] flex-1" dica={`${c.enderecoPublico}/g/ + este nome (letras minúsculas, números e hífen).`}>
-              <input className={classeInput} value={f.slug} onChange={muda("slug")} />
-            </Campo>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <p className="min-w-[240px] flex-1 text-[12.5px] text-gv-muted">O endereço é definido na criação da loja. Para mudar, fale com o suporte do Cliente Plus.</p>
             <Link to="/grupo-vip/pagina" className={classeBotao("primario")}>
               <Palette className="size-4" /> Personalizar a página
             </Link>
@@ -317,7 +314,7 @@ function PaginaConfiguracoes() {
       </div>
 
       <Dica icone={Save} cor="amber">
-        Lembre de tocar em <b>Salvar</b> (no alto da tela) depois de mudar os dados, o endereço da página, as regras ou o Pix.
+        Lembre de tocar em <b>Salvar</b> (no alto da tela) depois de mudar os dados, as regras ou o Pix.
       </Dica>
 
       {cupom && (

@@ -7,6 +7,7 @@ import {
   TiposPlanos,
   UltimasAtividades,
 } from "../../components/academia/Paineis";
+import { DashboardLutas } from "../../components/artes-marciais/DashboardLutas";
 import {
   AcoesRapidas,
   BannerMotivacional,
@@ -24,6 +25,7 @@ const academiaApi = getRouteApi("/academia");
 
 function Dashboard() {
   const d = academiaApi.useLoaderData();
+  if (d.lutas) return <DashboardLutas academia={d} lutas={d.lutas} />;
 
   return (
     <div className="flex flex-col gap-4">

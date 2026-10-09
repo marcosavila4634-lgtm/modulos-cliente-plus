@@ -115,12 +115,11 @@ function PaginaConfiguracoes() {
             .
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Campo rotulo="Endereço da página" className="sm:col-span-2">
-              <div className="flex items-center gap-2">
-                <span className="shrink-0 text-[12.5px] text-ac-muted">{c.paginaPublica.replace(/[^/]*$/, "")}</span>
-                <input className={classeInput} value={c.slug} onChange={(e) => mudar("slug", e.target.value.toLowerCase())} />
-              </div>
-            </Campo>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <span className="text-xs font-medium text-slate-300">Endereço da página</span>
+              <span className="truncate rounded-xl border border-ac-line bg-ac-bg/60 px-3 py-2.5 text-sm text-slate-200">{c.paginaPublica}</span>
+              <span className="text-[11.5px] text-ac-muted">O endereço é definido na criação da loja. Para mudar, fale com o suporte do Cliente Plus.</span>
+            </div>
             <Campo rotulo="WhatsApp (com DDD)">
               <input
                 className={classeInput}

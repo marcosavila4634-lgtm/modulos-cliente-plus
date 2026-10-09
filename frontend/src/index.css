@@ -36,6 +36,36 @@
   --color-gv-muted: #8a93a6;
 }
 
+/* Módulo Artes Marciais: o painel da Academia em preto e vermelho. As telas
+   são as mesmas; aqui só trocamos as cores (lib/modulo-atual.ts marca o
+   <html data-modulo="artes-marciais">). O roxo/rosa de destaque vira vermelho. */
+:root[data-modulo="artes-marciais"] {
+  --color-ac-bg: #09090b;
+  --color-ac-side: #0b0b0d;
+  --color-ac-card: #111113;
+  --color-ac-card-2: #18181b;
+  --color-ac-line: #27272a;
+  --color-ac-muted: #a1a1aa;
+
+  --color-violet-200: #fecaca;
+  --color-violet-300: #fca5a5;
+  --color-violet-400: #f87171;
+  --color-violet-500: #ef4444;
+  --color-violet-600: #b91c1c;
+  --color-violet-950: #450a0a;
+  --color-fuchsia-300: #fca5a5;
+  --color-fuchsia-400: #f87171;
+  --color-fuchsia-500: #dc2626;
+  --color-pink-200: #fecaca;
+  --color-pink-300: #fca5a5;
+  --color-pink-400: #f87171;
+  --color-pink-500: #ef4444;
+}
+
+:root[data-modulo="artes-marciais"] * {
+  scrollbar-color: #3f3f46 transparent;
+}
+
 html,
 body,
 #root {

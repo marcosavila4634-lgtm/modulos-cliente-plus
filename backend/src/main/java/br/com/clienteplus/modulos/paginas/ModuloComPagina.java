@@ -22,6 +22,11 @@ public interface ModuloComPagina {
     // prévia do editor
     Object dados();
 
+    // Troca o endereço público (slug) da loja. Só a PLATAFORMA chama
+    // (PlataformaResource): o endereço é definido na criação da loja e o
+    // lojista não muda. O endereço já chega conferido (Paginas.endereco).
+    void mudarEndereco(UUID storeId, String endereco);
+
     // chamado ao publicar (ex.: copiar a descrição para os textos do robô)
     default void aoPublicar(JsonNode pagina) {}
 }

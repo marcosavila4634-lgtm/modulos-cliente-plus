@@ -18,7 +18,6 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Aulas coletivas: cadastro, grade da semana, turma fixa, reservas e chamada.
 @Path("/academia/aulas")
@@ -27,8 +26,9 @@ public class AulasResource {
 
     private static final Collator ALFABETICA = Collator.getInstance(Locale.of("pt", "BR"));
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     Aulas aulas;
@@ -44,66 +44,66 @@ public class AulasResource {
         LocalDate segunda = dia.with(DayOfWeek.MONDAY);
         return new GradeAulas(
                 segunda,
-                Aula.<Aula>list("storeId", storeId).stream()
+                Aula.<Aula>list("storeId", lojaAtual.id()).stream()
                         .sorted(Comparator.comparing((Aula a) -> !a.ativo).thenComparing(a -> a.nome, ALFABETICA))
                         .map(aulas::json)
                         .toList(),
-                aulas.entre(storeId, segunda, segunda.plusDays(6), null));
+                aulas.entre(lojaAtual.id(), segunda, segunda.plusDays(6), null));
     }
 
     @POST
     public AulaJson cadastrar(DadosAula dados) {
-        return aulas.json(aulas.salvar(storeId, null, dados));
+        return aulas.json(aulas.salvar(lojaAtual.id(), null, dados));
     }
 
     @PUT
     @Path("/{id}")
     public AulaJson atualizar(@PathParam("id") UUID id, DadosAula dados) {
-        return aulas.json(aulas.salvar(storeId, id, dados));
+        return aulas.json(aulas.salvar(lojaAtual.id(), id, dados));
     }
 
     // Uma aula numa data: participantes, vagas e chamada.
     @GET
     @Path("/sessao/{horarioId}")
     public SessaoAula sessao(@PathParam("horarioId") UUID horarioId, @QueryParam("data") String data) {
-        return aulas.sessao(storeId, horarioId, data(data, null));
+        return aulas.sessao(lojaAtual.id(), horarioId, data(data, null));
     }
 
     @POST
     @Path("/sessao/{horarioId}/reservar")
     public SessaoAula reservar(@PathParam("horarioId") UUID horarioId, Reserva r) {
         if (r == null || r.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        aulas.reservar(storeId, horarioId, matriculas.aluno(storeId, r.alunoId()), r.data(), "recepcao");
-        return aulas.sessao(storeId, horarioId, r.data());
+        aulas.reservar(lojaAtual.id(), horarioId, matriculas.aluno(lojaAtual.id(), r.alunoId()), r.data(), "recepcao");
+        return aulas.sessao(lojaAtual.id(), horarioId, r.data());
     }
 
     @POST
     @Path("/sessao/{horarioId}/cancelar")
     public SessaoAula cancelar(@PathParam("horarioId") UUID horarioId, Reserva r) {
         if (r == null || r.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        aulas.cancelarReserva(storeId, horarioId, matriculas.aluno(storeId, r.alunoId()), r.data());
-        return aulas.sessao(storeId, horarioId, r.data());
+        aulas.cancelarReserva(lojaAtual.id(), horarioId, matriculas.aluno(lojaAtual.id(), r.alunoId()), r.data());
+        return aulas.sessao(lojaAtual.id(), horarioId, r.data());
     }
 
     @POST
     @Path("/sessao/{horarioId}/chamada")
     public SessaoAula chamada(@PathParam("horarioId") UUID horarioId, Chamada c) {
         if (c == null || c.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        aulas.chamada(storeId, horarioId, matriculas.aluno(storeId, c.alunoId()), c.data(), c.status());
-        return aulas.sessao(storeId, horarioId, c.data());
+        aulas.chamada(lojaAtual.id(), horarioId, matriculas.aluno(lojaAtual.id(), c.alunoId()), c.data(), c.status());
+        return aulas.sessao(lojaAtual.id(), horarioId, c.data());
     }
 
     @POST
     @Path("/horarios/{horarioId}/turma")
     public void adicionarFixo(@PathParam("horarioId") UUID horarioId, NovoFixo f) {
         if (f == null || f.alunoId() == null) throw Erro.invalido("Escolha o aluno");
-        aulas.adicionarFixo(storeId, horarioId, matriculas.aluno(storeId, f.alunoId()));
+        aulas.adicionarFixo(lojaAtual.id(), horarioId, matriculas.aluno(lojaAtual.id(), f.alunoId()));
     }
 
     @POST
     @Path("/horarios/{horarioId}/turma/{alunoId}/remover")
     public void removerFixo(@PathParam("horarioId") UUID horarioId, @PathParam("alunoId") UUID alunoId) {
-        aulas.removerFixo(storeId, horarioId, matriculas.aluno(storeId, alunoId));
+        aulas.removerFixo(lojaAtual.id(), horarioId, matriculas.aluno(lojaAtual.id(), alunoId));
     }
 
     private static LocalDate data(String s, LocalDate padrao) {

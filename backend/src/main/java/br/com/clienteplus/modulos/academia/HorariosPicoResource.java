@@ -8,15 +8,15 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 // Horários de pico: média de entradas por dia da semana e hora.
 @Path("/academia/horarios-de-pico")
 @Produces(MediaType.APPLICATION_JSON)
 public class HorariosPicoResource {
 
-    @ConfigProperty(name = "academia.store-id")
-    UUID storeId;
+    // Loja da requisição (academia ou artes marciais), até existir login.
+    @Inject
+    LojaAcademia lojaAtual;
 
     @Inject
     HorariosPico pico;
@@ -25,6 +25,6 @@ public class HorariosPicoResource {
     @GET
     public PainelPico painel(@QueryParam("semanas") Integer semanas) {
         int s = semanas == null ? 4 : Math.max(1, Math.min(12, semanas));
-        return pico.painel(storeId, s);
+        return pico.painel(lojaAtual.id(), s);
     }
 }

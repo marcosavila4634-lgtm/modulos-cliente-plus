@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, ExternalLink, TrendingUp } from "lucide-react";
-import { AvatarAcademia, LogoGestaoPlus } from "./Marcas";
-import { menuAcademia } from "./menu";
+import { ehArtesMarciais } from "../../lib/modulo-atual";
+import { AvatarAcademia, LogoArtesMarciais, LogoGestaoPlus } from "./Marcas";
+import { menuDoModulo } from "./menu";
 
 const item =
   "flex items-center gap-3 rounded-xl px-3 py-[7px] text-[13.5px] text-slate-300 transition-colors hover:bg-white/5 hover:text-white";
@@ -23,7 +24,7 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
       }`}
     >
       <div className={`flex h-16 items-center ${recolhida ? "justify-center" : "px-5"}`}>
-        <LogoGestaoPlus compacto={recolhida} />
+        {ehArtesMarciais() ? <LogoArtesMarciais compacto={recolhida} /> : <LogoGestaoPlus compacto={recolhida} />}
       </div>
 
       <Link
@@ -47,7 +48,7 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
       </Link>
 
       <nav className="mt-3 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
-        {menuAcademia.map(({ secao, rotulo, icone: Icone }) => {
+        {menuDoModulo().map(({ secao, rotulo, icone: Icone }) => {
           const conteudo = (
             <>
               <Icone className="size-[18px] shrink-0" />
@@ -96,7 +97,9 @@ export function SidebarAcademia({ nomeAcademia, gestor, recolhida, aoNavegar }: 
             <>
               <div className="min-w-0 flex-1 leading-tight">
                 <div className="text-[13px] font-semibold text-white">Cliente Plus</div>
-                <div className="text-[11px] text-ac-muted">Impulsione seu crescimento</div>
+                <div className="text-[11px] text-ac-muted">
+                  {ehArtesMarciais() ? "Mais alunos, mais histórias de sucesso." : "Impulsione seu crescimento"}
+                </div>
               </div>
               <ExternalLink className="size-4 text-ac-muted" />
             </>

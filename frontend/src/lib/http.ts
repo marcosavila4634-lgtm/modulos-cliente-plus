@@ -1,10 +1,15 @@
+import { cabecalhoModulo } from "./modulo-atual";
+
 // Chamadas ao backend com JSON. Em caso de erro, lança um Error com a mensagem
 // enviada pela API ({"error": "..."}), pronta para mostrar na tela.
 
 async function requisicao<T>(metodo: string, caminho: string, corpo?: unknown): Promise<T> {
   const res = await fetch(`/api${caminho}`, {
     method: metodo,
-    headers: corpo === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: {
+      ...cabecalhoModulo(),
+      ...(corpo === undefined ? {} : { "Content-Type": "application/json" }),
+    },
     body: corpo === undefined ? undefined : JSON.stringify(corpo),
   });
   if (!res.ok) {
